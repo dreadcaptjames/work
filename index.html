@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AV Design Sketch</title>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--line:#2c3742;--text:#e6edf3;--mute:#8b98a5;--acc:#4fb3ff;--acc2:#ffb454;--ok:#7bd88f;--bad:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
+header{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.9rem 1.2rem;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:1.1rem;margin:0;letter-spacing:.04em}
+header h1 span{color:var(--acc)}
+.tools button{margin-left:.3rem}
+main{max-width:1100px;margin:0 auto;padding:1rem}
+.steps{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:1rem}
+.steps button{background:var(--panel);border:1px solid var(--line);color:var(--mute);padding:.4rem .7rem;border-radius:999px;font-size:.82rem;cursor:pointer}
+.steps button.on{border-color:var(--acc);color:var(--text)}
+.steps button.done{color:var(--ok)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1.2rem;margin-bottom:1rem}
+.card h2{margin:0 0 .2rem;font-size:1.2rem}
+.card .q{color:var(--mute);margin:0 0 1rem}
+label{display:block;font-size:.82rem;color:var(--mute);margin:.6rem 0 .25rem}
+input,select,textarea{width:100%;background:#0c1116;border:1px solid var(--line);color:var(--text);padding:.5rem .6rem;border-radius:6px;font:inherit}
+textarea{min-height:70px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.2rem .8rem}
+.item{border:1px solid var(--line);border-radius:8px;padding:.6rem .8rem;margin:.6rem 0;position:relative}
+.item .x{position:absolute;top:.4rem;right:.5rem}
+button{background:#24303b;color:var(--text);border:1px solid var(--line);padding:.45rem .8rem;border-radius:6px;cursor:pointer;font:inherit;font-size:.88rem}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);color:#04121f;border-color:var(--acc);font-weight:600}
+button.sm{padding:.2rem .5rem;font-size:.78rem}
+.nav{display:flex;justify-content:space-between;margin-top:1rem}
+.chk{display:flex;align-items:center;gap:.4rem;color:var(--text);font-size:.9rem;margin:.3rem 0}
+.chk input{width:auto}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{border-bottom:1px solid var(--line);padding:.4rem;text-align:left}
+th{color:var(--mute);font-weight:500}
+td.c,th.c{text-align:center}
+.note{background:#13202b;border-left:3px solid var(--acc);padding:.5rem .8rem;margin:.5rem 0;font-size:.88rem;border-radius:0 6px 6px 0}
+.note.warn{border-color:var(--acc2)}
+.diagram{overflow-x:auto;background:#0c1116;border-radius:8px;padding:.5rem}
+.tag{display:inline-block;background:#24303b;border-radius:4px;padding:0 .4rem;font-size:.75rem;margin-left:.3rem;color:var(--mute)}
+@media print{
+  body{background:#fff;color:#000}
+  header .tools,.steps,.nav,.noprint{display:none!important}
+  .card{border:1px solid #ccc;background:#fff;break-inside:avoid}
+  .diagram{background:#fff}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>AV <span>DESIGN</span> SKETCH</h1>
+  <div class="tools">
+    <button onclick="exportJSON()">Export</button>
+    <button onclick="document.getElementById('imp').click()">Import</button>
+    <button onclick="resetAll()">New</button>
+    <input type="file" id="imp" accept=".json" hidden onchange="importJSON(event)">
+  </div>
+</header>
+<main>
+  <div class="steps" id="steps"></div>
+  <div id="view"></div>
+</main>
+
+<script>
+const STEPS = ["Project","Displays","Sources","Routing","Audio","Conferencing","Control","Infrastructure","Sketch"];
+const DISPLAY_TYPES = ["Flat panel","Projector + screen","LED video wall","Interactive display","Confidence monitor"];
+const SOURCE_TYPES = ["Laptop (HDMI/USB-C)","Wireless presentation","Room PC","Cable / IPTV","Media player","Document camera","Camera feed","Digital signage player","Blu-ray / other"];
+const LOCS = ["Table","Lectern","Wall plate","Credenza","Equipment rack","Ceiling","Remote room / IDF"];
+const ROOM_TYPES = ["Huddle room","Conference room","Boardroom","Training / classroom","Divisible room","Auditorium","Lobby / signage","Multi-room / campus","Other"];
+
+// ---------- Product catalog (real models; verify current availability with distributor) ----------
+// Each entry: [brand, model, short description, ecosystems]
+const CAT = {
+  avoip_enc:[["Crestron","DM-NVX-E30","4K60 AV-over-IP encoder","crestron"],["Crestron","DM-NVX-363","4K60 AVoIP encoder/decoder (configurable)","crestron"],["Extron","NAV E 101 4K","NAV Pro AV-over-IP encoder","extron"],["Q-SYS","NV-32-H (Core Capable)","Network video endpoint, encoder mode","qsys"],["Atlona","AT-OMNI-121","OmniStream 1-ch encoder","atlona"]],
+  avoip_dec:[["Crestron","DM-NVX-D30","4K60 AV-over-IP decoder","crestron"],["Crestron","DM-NVX-363","4K60 AVoIP encoder/decoder (configurable)","crestron"],["Extron","NAV SD 101 4K","NAV Pro AV-over-IP decoder","extron"],["Q-SYS","NV-32-H (Core Capable)","Network video endpoint, decoder mode","qsys"],["Atlona","AT-OMNI-122","OmniStream 1-ch decoder","atlona"]],
+  avoip_switch:[["Netgear","M4250 series (AV Line)","AV-profile managed switch, multicast/IGMP ready","*"],["Cisco","Catalyst 9300 series","Enterprise switch — needs IGMP snooping/querier","*"],["Luxul","AMS series","Managed switch for smaller AVoIP","*"]],
+  hdbt_tx:[["Extron","DTP HDMI 4K 230 Tx","HDBaseT transmitter, 230 ft","extron"],["Crestron","HD-TX-4KZ-101","HDBaseT 4K transmitter","crestron"],["Atlona","AT-HDR-EX-100CEA-TX","HDBaseT 4K transmitter","atlona"],["Extron","DTP HDMI 4K 330 Tx","HDBaseT transmitter, 330 ft","*"]],
+  hdbt_rx:[["Extron","DTP HDMI 4K 230 Rx","HDBaseT receiver, 230 ft","extron"],["Crestron","HD-RX-4KZ-101","HDBaseT 4K receiver","crestron"],["Atlona","AT-HDR-EX-100CEA-RX","HDBaseT 4K receiver","atlona"],["Extron","DTP HDMI 4K 330 Rx","HDBaseT receiver, 330 ft","*"]],
+  pres_sw:[["Crestron","HD-PS622","6×2 4K presentation switcher, HDBaseT outs","crestron"],["Crestron","HD-PS402","4×2 4K presentation switcher","crestron"],["Extron","IN1608 xi","8-input scaling presentation switcher w/ DTP","extron"],["Extron","IN1606","6-input scaling presentation switcher","extron"],["Atlona","AT-OME-PS62","6×2 Omega presentation switcher","atlona"],["Q-SYS","NV-32-H (Core Capable)","3-in HDMI switcher endpoint","qsys"]],
+  matrix:[["Extron","DXP 84 HD 4K PLUS","8×4 HDMI matrix","extron"],["Extron","DXP 88 HD 4K PLUS","8×8 HDMI matrix","extron"],["Extron","DXP 168 HD 4K PLUS","16×8 HDMI matrix","extron"],["Atlona","AT-UHD-PRO3-88M","8×8 HDBaseT matrix","atlona"],["Crestron","DM-NVX system","Crestron recommends NVX over fixed matrices","crestron"]],
+  dsp_open:[["Biamp","TesiraFORTÉ X 400","Open-arch DSP, AEC, Dante, USB","*"],["Biamp","TesiraFORTÉ X 800","Open-arch DSP, 8-ch AEC","*"],["Q-SYS","Core Nano","Network-only Q-SYS core (Dante/AES67/Q-LAN)","qsys"],["Q-SYS","Core 8 Flex","Q-SYS core with analog/GPIO I/O","qsys"],["Shure","IntelliMix P300","Conferencing DSP for Shure mics, AEC","*"]],
+  dsp_small:[["Shure","IntelliMix P300","Compact AEC DSP, Dante + USB","*"],["Biamp","TesiraFORTÉ X 400","Compact DSP","*"],["Q-SYS","Core Nano","Small Q-SYS core","qsys"]],
+  amp:[["QSC","SPA2-60","2×60 W @ 4/8 Ω, low-Z","*"],["QSC","SPA4-100","4×100 W @ 8 Ω, low-Z","*"],["Crestron","AMP-X300","300 W 70/100 V or 4/8 Ω","crestron"],["Q-SYS","CX-Q 2K4","4×500 W network amp, 70V capable","qsys"],["Extron","XPA 2001-70V","200 W 70 V mono amp","extron"],["Extron","NetPA U 1004","4×100 W Dante amp","extron"]],
+  spk_ceiling:[["QSC","AD-C6T","6.5\" ceiling, 70/100 V taps","*"],["JBL","Control 26CT","6.5\" ceiling, 70/100 V","*"],["Biamp","Desono C-IC6","6.5\" ceiling, 70 V","*"],["Crestron","SAROS IC6T","6.5\" ceiling, 70/100 V","crestron"]],
+  spk_wall:[["QSC","AD-S6T","6.5\" surface, 70/100 V","*"],["JBL","Control 25-1","5.25\" surface speaker","*"]],
+  spk_line:[["QSC","AcousticDesign AD-S.SUB + AD-S28Tw","Install PA package","*"],["JBL","CBT 70J-1","Constant-beamwidth column","*"]],
+  mic_ceiling:[["Shure","MXA920","Ceiling array, auto-coverage","*"],["Sennheiser","TeamConnect Ceiling 2","Beamforming ceiling array","*"],["Biamp","Parlé TCM-X","Ceiling beam-tracking mic","*"],["Q-SYS","NM-T1","Network ceiling mic","qsys"]],
+  mic_table:[["Shure","MXA310","Table array","*"],["Biamp","Parlé TTM-X","Table mic","*"],["Shure","MX395","Boundary mic","*"]],
+  mic_goose:[["Shure","MX418","18\" gooseneck","*"],["Shure","Microflex Complete","Gooseneck delegate system","*"]],
+  mic_wireless:[["Shure","SLX-D","Digital wireless (handheld/lav/headset)","*"],["Shure","ULX-D","Pro digital wireless, Dante","*"],["Sennheiser","EW-DX","Digital wireless","*"]],
+  ald:[["Listen Technologies","ListenIR / ListenEverywhere","IR or Wi-Fi assistive listening","*"],["Williams AV","FM Plus PPA","FM assistive listening","*"]],
+  vc_teams:[["Logitech","Rally Bar","All-in-one video bar (Teams/Zoom)","*"],["Poly","Studio X52","Video bar, Teams/Zoom","*"],["Neat","Neat Bar Pro","Video bar, Teams/Zoom","*"],["Yealink","MeetingBar A30","Video bar, Teams/Zoom","*"],["Crestron","Flex UC-C/UC-B series","Teams/Zoom room kit","crestron"]],
+  vc_compute:[["Logitech","RoomMate + Tap IP","Appliance compute for larger rooms","*"],["Crestron","UC-ENGINE","Teams/Zoom room compute","crestron"],["Q-SYS","NC-Series + Core","Q-SYS native UC","qsys"],["Lenovo","ThinkSmart Core","Teams Room compute","*"]],
+  cam_ptz:[["Logitech","Rally Camera","PTZ, USB","*"],["Q-SYS","NC-20x60","20× PTZ network camera","qsys"],["Crestron","1 Beyond i12","PTZ, auto-tracking","crestron"],["AVer","CAM520 Pro3","PTZ, PoE/USB","*"],["Huddly","L1","Intelligent wide, AI framing","*"]],
+  usb_bridge:[["Logitech","Swytch","BYOD laptop link to room cam/mics","*"],["Q-SYS","NV-32-H / I/O-USB Bridge","USB bridge to Q-SYS","qsys"]],
+  wireless:[["Barco","ClickShare CX-50 Gen 2","Wireless conferencing + presentation","*"],["Crestron","AirMedia AM-3200","Wireless presentation","crestron"],["Mersive","Solstice Pod","Wireless collaboration","*"]],
+  touch:[["Crestron","TSW-770","7\" touch panel","crestron"],["Crestron","TSW-1070","10\" touch panel","crestron"],["Extron","TLP Pro 725T","7\" tabletop touch panel","extron"]],
+  keypad:[["Extron","MLC Plus 100","MediaLink controller","extron"]],
+  processor:[["Crestron","CP4N","Control processor","crestron"],["Crestron","MC4-R","Room control processor","crestron"],["Extron","IPCP Pro 250 Q xi","IP Link Pro control processor","extron"],["Q-SYS","Core (control built-in)","Control runs on the Q-SYS Core","qsys"]],
+  scheduler:[["Crestron","TSS-770","Room scheduling panel","crestron"],["Logitech","Tap Scheduler","Teams/Zoom scheduling panel","*"]],
+  occupancy:[["Crestron","GLS-ODT-C-CN","Dual-tech ceiling occupancy sensor","crestron"]],
+  pc:[["Dell","OptiPlex Micro","Small form-factor room PC","*"],["Lenovo","ThinkCentre M90q Tiny","Small form-factor room PC","*"]],
+  player:[["BrightSign","XT1145","4K signage/media player","*"],["BrightSign","HD225","HD media player","*"]],
+  iptv:[["Exterity","AvediaPlayer","IPTV decoder","*"],["VITEC","EZ TV","IPTV / cable STB","*"]],
+  doccam:[["Elmo","MX-P3","4K document camera","*"],["IPEVO","VZ-X","Document camera","*"]],
+  panel:[["Samsung","QMC series","4K commercial display, 43–98\"","*"],["LG","UH5N-E series","4K commercial display","*"],["Sony","BRAVIA Professional BZ series","4K pro display","*"],["NEC/Sharp","MultiSync M series","4K commercial display","*"]],
+  projector:[["Epson","Pro L series laser","WUXGA/4K laser projector","*"],["Panasonic","PT-RZ series","Laser projector","*"],["Da-Lite / Draper","Tensioned motorized screen","Projection screen","*"]],
+  led:[["Absen","Acclaim series","Fine-pitch LED","*"],["Samsung","The Wall / IWA","Fine-pitch LED","*"],["LG","LAEC all-in-one","All-in-one LED display","*"]],
+  interactive:[["Samsung","WAD Flip series","Interactive display","*"],["SMART","Board MX series","Interactive display","*"],["Microsoft","Surface Hub 3","Teams interactive display","*"]],
+  tableinput:[["Extron","Cable Cubby 600","Table cable access enclosure","extron"],["Crestron","FT2-600","FlipTop table box","crestron"],["Legrand/AVTX","TBX/Evolution series","Table box","*"]],
+  rack:[["Middle Atlantic","DWR wall rack / Forward credenza","Equipment rack","*"],["Middle Atlantic","UPS-OL series","Rack UPS / power","*"]]
+};
+const ECOS = {auto:"Best fit",crestron:"Crestron",extron:"Extron",qsys:"Q-SYS",atlona:"Atlona"};
+
+const blank = () => ({
+  project:{name:"",client:"",roomType:"Conference room",length:"",width:"",seats:"",notes:""},
+  displays:[], sources:[], routes:{},
+  routing:{mode:"auto",preview:false},
+  audio:{program:true,speech:false,mics:[],speakers:"Ceiling",speakerCount:"",dsp:"auto",assist:false},
+  conf:{platform:"None",cameras:0,cameraType:"PTZ",tracking:false,usbBridge:false},
+  control:{type:"Touch panel",panels:1,scheduler:false,lighting:false,shades:false,occupancy:false,notes:""},
+  infra:{maxRun:"",rackLoc:"Credenza",network:"Shared corporate",power:"",notes:"",eco:"auto"},
+  picks:{}
+});
+
+let S = load() || blank();
+let step = 0;
+
+function load(){ try{ return JSON.parse(localStorage.getItem("avsketch")); }catch(e){ return null; } }
+function save(){ try{ localStorage.setItem("avsketch", JSON.stringify(S)); }catch(e){} }
+const uid = () => Math.random().toString(36).slice(2,8);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const opts = (arr, v) => arr.map(o => `<option ${o==v?"selected":""}>${esc(o)}</option>`).join("");
+
+// Bind helper: data-k="path.to.value"
+function setPath(path, val){
+  const keys = path.split("."); let o = S;
+  for(let i=0;i<keys.length-1;i++) o = o[keys[i]];
+  o[keys.at(-1)] = val; save();
+}
+document.addEventListener("input", e => {
+  const k = e.target.dataset.k; if(!k) return;
+  const v = e.target.type==="checkbox" ? e.target.checked : (e.target.type==="number" ? +e.target.value : e.target.value);
+  setPath(k, v);
+  if(e.target.dataset.rerender) render();
+});
+document.addEventListener("change", e => { if(e.target.dataset.rerender) render(); });
+
+function field(label, k, val, type="text", extra=""){
+  return `<div><label>${label}</label><input type="${type}" data-k="${k}" value="${esc(val)}" ${extra}></div>`;
+}
+function sel(label, k, arr, val, rr=false){
+  return `<div><label>${label}</label><select data-k="${k}" ${rr?'data-rerender="1"':""}>${opts(arr,val)}</select></div>`;
+}
+function chk(label, k, val, rr=false){
+  return `<label class="chk"><input type="checkbox" data-k="${k}" ${val?"checked":""} ${rr?'data-rerender="1"':""}> ${label}</label>`;
+}
+
+// ---------- Steps ----------
+const V = {
+Project(){
+  const p=S.project;
+  return `<h2>Start with the space</h2><p class="q">What kind of room is this, and who's using it?</p>
+  <div class="grid">${field("Project name","project.name",p.name)}${field("Client / end user","project.client",p.client)}
+  ${sel("Room type","project.roomType",ROOM_TYPES,p.roomType)}${field("Seats / occupancy","project.seats",p.seats,"number")}
+  ${field("Room length (ft)","project.length",p.length,"number")}${field("Room width (ft)","project.width",p.width,"number")}</div>
+  <label>What does the room need to do? (use cases, pain points)</label><textarea data-k="project.notes">${esc(p.notes)}</textarea>`;
+},
+Displays(){
+  const list = S.displays.map((d,i)=>`<div class="item"><button class="sm x" onclick="del('displays',${i})">✕</button>
+   <div class="grid">${field("Name","displays."+i+".name",d.name)}${sel("Type","displays."+i+".type",DISPLAY_TYPES,d.type)}
+   ${field("Size (in)","displays."+i+".size",d.size,"number")}${sel("Resolution","displays."+i+".res",["1080p","4K","Native LED","Other"],d.res)}
+   ${field("Location","displays."+i+".loc",d.loc)}${field("Cable distance from rack (ft)","displays."+i+".dist",d.dist,"number")}</div></div>`).join("");
+  const rec = sizeHint();
+  return `<h2>How many displays are we trying to get to?</h2><p class="q">Add every screen in the design — main displays, confidence monitors, signage, overflow.</p>
+  ${list || '<p class="q">No displays yet.</p>'}
+  <button onclick="addDisplay()">+ Add display</button> <button onclick="addDisplay(2)">+ Add 2</button>
+  ${rec?`<div class="note">${rec}</div>`:""}`;
+},
+Sources(){
+  const list = S.sources.map((s,i)=>`<div class="item"><button class="sm x" onclick="del('sources',${i})">✕</button>
+   <div class="grid">${field("Name","sources."+i+".name",s.name)}${sel("Type","sources."+i+".type",SOURCE_TYPES,s.type)}
+   ${sel("Location","sources."+i+".loc",LOCS,s.loc)}${chk("Carries audio","sources."+i+".audio",s.audio)}</div></div>`).join("");
+  return `<h2>What are we trying to get to them?</h2><p class="q">List every source that needs to be seen — and where it plugs in.</p>
+  ${list || '<p class="q">No sources yet.</p>'}
+  <button onclick="addSource()">+ Add source</button>
+  <div class="noprint" style="margin-top:.6rem">Quick add: ${SOURCE_TYPES.slice(0,6).map(t=>`<button class="sm" onclick="addSource('${t}')">${t.split(" (")[0]}</button>`).join(" ")}</div>`;
+},
+Routing(){
+  if(!S.displays.length || !S.sources.length) return `<h2>Routing</h2><div class="note warn">Add at least one display and one source first.</div>`;
+  const head = S.displays.map(d=>`<th class="c">${esc(d.name)}</th>`).join("");
+  const rows = S.sources.map(s=>`<tr><td>${esc(s.name)}</td>${S.displays.map(d=>{
+    const on = S.routes[s.id+"|"+d.id];
+    return `<td class="c"><input type="checkbox" ${on?"checked":""} onchange="toggleRoute('${s.id}','${d.id}',this.checked)" style="width:auto"></td>`}).join("")}</tr>`).join("");
+  const core = recommendCore();
+  return `<h2>What needs to go where?</h2><p class="q">Check each source that should be viewable on each display.</p>
+  <div class="noprint" style="margin-bottom:.5rem"><button class="sm" onclick="routeAll(true)">Any source → any display</button> <button class="sm" onclick="routeAll(false)">Clear</button></div>
+  <div style="overflow-x:auto"><table><tr><th>Source ↓ / Display →</th>${head}</tr>${rows}</table></div>
+  <div class="grid">${sel("Switching approach","routing.mode",["auto","Direct connection","Presentation switcher","Matrix switcher","AV over IP"],S.routing.mode,true)}</div>
+  ${chk("Need different content on different displays at the same time","routing.independent",S.routing.independent,true)}
+  <div class="note"><b>Suggested core:</b> ${core.name}<br>${core.why}</div>`;
+},
+Audio(){
+  const a=S.audio;
+  const mics = a.mics.map((m,i)=>`<div class="item"><button class="sm x" onclick="del('audio.mics',${i})">✕</button><div class="grid">
+   ${sel("Mic type","audio.mics."+i+".type",["Ceiling array","Table boundary","Gooseneck","Wireless handheld","Wireless lav","Wireless headset"],m.type)}
+   ${field("Qty","audio.mics."+i+".qty",m.qty,"number")}</div></div>`).join("");
+  return `<h2>What do people need to hear?</h2><p class="q">Program audio from sources, voices in the room, and the far end.</p>
+  ${chk("Program audio (play source audio in the room)","audio.program",a.program)}
+  ${chk("Speech reinforcement (amplify presenters)","audio.speech",a.speech)}
+  ${chk("Assistive listening required","audio.assist",a.assist)}
+  <div class="grid">${sel("Speaker type","audio.speakers",["Ceiling","Wall-mount","Soundbar","Display speakers only","Line array / PA"],a.speakers)}
+  ${field("Speaker qty","audio.speakerCount",a.speakerCount,"number")}
+  ${sel("DSP","audio.dsp",["auto","Not needed","Small fixed DSP","Open-architecture DSP","Built into codec/bar"],a.dsp)}</div>
+  <h3 style="font-size:1rem;margin:1rem 0 .2rem">Microphones</h3>${mics||'<p class="q">No mics.</p>'}
+  <button onclick="S.audio.mics.push({type:'Ceiling array',qty:1});save();render()">+ Add mics</button>
+  ${a.speakerCount==="" && S.project.length && S.project.width ? `<div class="note">Rough ceiling speaker count for ${S.project.length}×${S.project.width} ft at ~9 ft ceiling: <b>${Math.max(2,Math.ceil(S.project.length*S.project.width/150))}</b></div>`:""}`;
+},
+Conferencing(){
+  const c=S.conf;
+  return `<h2>Does the far end need to see and hear us?</h2><p class="q">Video conferencing and remote participation.</p>
+  <div class="grid">${sel("Platform","conf.platform",["None","Microsoft Teams Room","Zoom Room","Google Meet","BYOD (laptop drives the call)","Hybrid (native + BYOD)","Codec / SIP"],c.platform,true)}
+  ${field("Cameras","conf.cameras",c.cameras,"number")}
+  ${sel("Camera type","conf.cameraType",["PTZ","Fixed wide","Video bar (integrated)","Intelligent / multi-lens"],c.cameraType)}</div>
+  ${chk("Auto-tracking / speaker framing","conf.tracking",c.tracking)}
+  ${chk("USB bridge so laptops can use room camera/mics","conf.usbBridge",c.usbBridge)}
+  ${c.platform!=="None" && !S.audio.mics.length ? `<div class="note warn">Conferencing is on but no microphones are listed — add them on the Audio step.</div>`:""}`;
+},
+Control(){
+  const c=S.control;
+  return `<h2>How will people run the room?</h2><p class="q">User interface and what it controls.</p>
+  <div class="grid">${sel("Interface","control.type",["Touch panel","Button keypad","Platform console (Teams/Zoom)","Auto-switching only","Mobile / web UI","None"],c.type)}
+  ${field("Qty","control.panels",c.panels,"number")}</div>
+  ${chk("Room scheduling panel at door","control.scheduler",c.scheduler)}
+  ${chk("Lighting integration","control.lighting",c.lighting)}
+  ${chk("Shade integration","control.shades",c.shades)}
+  ${chk("Occupancy-based power on/off","control.occupancy",c.occupancy)}
+  <label>Control notes (presets, one-touch modes, etc.)</label><textarea data-k="control.notes">${esc(c.notes)}</textarea>`;
+},
+Infrastructure(){
+  const f=S.infra;
+  return `<h2>Where does it all live?</h2><p class="q">Rack, cabling, network and power.</p>
+  <div class="grid">${sel("Equipment location","infra.rackLoc",["Credenza","Behind display","Wall rack","Floor rack in room","Closet / IDF","Lectern"],f.rackLoc)}
+  ${sel("Network","infra.network",["Shared corporate","Dedicated AV VLAN","Isolated AV network","Unknown"],f.network)}
+  ${field("Power / circuits","infra.power",f.power)}
+  <div><label>Preferred ecosystem</label><select data-k="infra.eco">${Object.entries(ECOS).map(([k,v])=>`<option value="${k}" ${f.eco==k?"selected":""}>${v}</option>`).join("")}</select></div></div>
+  <label>Notes (conduit, floor boxes, furniture, constraints)</label><textarea data-k="infra.notes">${esc(f.notes)}</textarea>
+  ${checks().map(n=>`<div class="note warn">${n}</div>`).join("")}`;
+},
+Sketch(){
+  const core = recommendCore();
+  return `<h2>${esc(S.project.name||"Untitled design")} <span class="tag">${esc(S.project.roomType)}</span></h2>
+  <p class="q">${esc(S.project.client)} ${S.project.seats?"· "+S.project.seats+" seats":""}</p>
+  <div class="diagram">${diagram()}</div>
+  <h3 style="font-size:1rem">Equipment sketch</h3>${bom()}
+  <h3 style="font-size:1rem">Open items</h3>${(checks().map(n=>`<div class="note warn">${n}</div>`).join(""))||'<div class="note">No open flags.</div>'}
+  <div class="noprint" style="margin-top:1rem"><button class="pri" onclick="window.print()">Print / Save PDF</button> <button onclick="downloadSVG()">Download diagram (SVG)</button></div>`;
+}};
+
+// ---------- Logic ----------
+function addDisplay(n=1){ for(let i=0;i<n;i++){ const k=S.displays.length+1; S.displays.push({id:uid(),name:"Display "+k,type:"Flat panel",size:"",res:"4K",loc:"",dist:""}); } save(); render(); }
+function addSource(t="Laptop (HDMI/USB-C)"){ const k=S.sources.length+1; S.sources.push({id:uid(),name:t.split(" (")[0]+" "+k,type:t,loc:t.includes("PC")||t.includes("IPTV")||t.includes("player")?"Equipment rack":"Table",audio:true}); save(); render(); }
+function del(path,i){ const keys=path.split("."); let o=S; keys.forEach(k=>o=o[k]); o.splice(i,1); save(); render(); }
+function toggleRoute(s,d,v){ S.routes[s+"|"+d]=v; save(); render(); }
+function routeAll(v){ S.sources.forEach(s=>S.displays.forEach(d=>S.routes[s.id+"|"+d.id]=v)); save(); render(); }
+const routed = () => Object.entries(S.routes).filter(([k,v])=>v).map(([k])=>k.split("|"));
+
+function sizeHint(){
+  const L=+S.project.length; if(!L) return "";
+  // AVIXA-ish rough: farthest viewer ≈ 0.8×length; basic decision image height ≈ distance/6 → diagonal ≈ h/0.49
+  const far=L*0.85, h=far/6*12, diag=Math.round(h/0.49);
+  return `For a ~${L} ft deep room, a main display around <b>${diag}"</b> diagonal (16:9) is a reasonable starting point for general viewing. Verify against the AVIXA DISCAS standard for detailed content.`;
+}
+function recommendCore(){
+  const nS=S.sources.length, nD=S.displays.length, maxDist=Math.max(0,...S.displays.map(d=>+d.dist||0));
+  const multi = S.routing.independent;
+  let name, why;
+  if(S.routing.mode!=="auto"){ name=S.routing.mode; why="Selected manually."; }
+  else if(nD>8 || S.project.roomType==="Multi-room / campus" || maxDist>330){ name="AV over IP"; why=`${nD} displays${maxDist>330?" and runs over 330 ft":""} — a networked encoder/decoder system scales better than a fixed matrix.`; }
+  else if(nS<=1 && nD<=1){ name="Direct connection"; why="One source to one display — no switcher needed (consider a wall plate/extender if the run is long)."; }
+  else if(nD<=2 && !multi){ name="Presentation switcher"; why="A few sources to one or two displays showing the same thing — a presentation switcher/scaler with built-in extenders fits."; }
+  else { name=`Matrix switcher (${Math.max(4,nextSize(nS))}×${Math.max(2,nextSize(nD))})`; why="Multiple displays with independent content — a matrix lets any source go to any display."; }
+  return {name,why};
+}
+function nextSize(n){ return [2,4,6,8,10,12,16,24,32].find(x=>x>=n)||n; }
+function transport(dist){ dist=+dist||0; if(!dist) return "?"; if(dist<=25) return "HDMI"; if(dist<=330) return "HDBaseT"; return "Fiber / AVoIP"; }
+
+function checks(){
+  const n=[];
+  if(!S.displays.length) n.push("No displays defined.");
+  if(!S.sources.length) n.push("No sources defined.");
+  S.displays.forEach(d=>{ if(!routed().some(r=>r[1]===d.id)) n.push(`${esc(d.name)} has no sources routed to it.`); if(!d.dist) n.push(`${esc(d.name)}: cable distance unknown — needed to pick HDMI vs HDBaseT vs fiber.`); });
+  S.sources.forEach(s=>{ if(!routed().some(r=>r[0]===s.id)) n.push(`${esc(s.name)} isn't routed anywhere.`); });
+  if(S.conf.platform!=="None" && !S.conf.cameras && S.conf.cameraType!=="Video bar (integrated)") n.push("Conferencing selected but no cameras.");
+  if(S.audio.speech && S.audio.mics.some(m=>m.type==="Ceiling array")) n.push("Speech reinforcement with ceiling mics is prone to feedback — review gain-before-feedback.");
+  if(S.audio.assist) n.push("Assistive listening: confirm ADA receiver quantity for occupancy.");
+  if(S.infra.network==="Unknown") n.push("Network approach not confirmed with IT.");
+  return n;
+}
+function needsDSP(){
+  const a=S.audio; if(a.dsp!=="auto") return a.dsp==="Not needed"?null:a.dsp;
+  if(a.mics.length || a.speech) return S.conf.cameraType==="Video bar (integrated)"?"Built into codec/bar":"Open-architecture DSP";
+  if(a.program && (+a.speakerCount>0 || a.speakers!=="Display speakers only")) return "Small fixed DSP";
+  return null;
+}
+
+// Build structured equipment list: {key, cat, role, catKey, qty, note}
+function items(){
+  const L=[], add=(key,cat,role,catKey,qty,note="")=>{ if(qty>0||qty==="TBD") L.push({key,cat,role,catKey,qty,note}); };
+  const core=recommendCore().name, avoip=core.startsWith("AV over IP");
+  const routedSrc=S.sources.filter(s=>routed().some(r=>r[0]===s.id));
+  const routedDsp=S.displays.filter(d=>routed().some(r=>r[1]===d.id));
+  // Displays
+  const dmap={"Flat panel":"panel","Confidence monitor":"panel","Projector + screen":"projector","LED video wall":"led","Interactive display":"interactive"};
+  const byT={}; S.displays.forEach(d=>{const k=dmap[d.type]; byT[k]=byT[k]||{n:0,sz:new Set()}; byT[k].n++; if(d.size) byT[k].sz.add(d.size+'"');});
+  Object.entries(byT).forEach(([k,v])=>add("disp_"+k,"Display",k==="projector"?"Projector + screen":k==="led"?"LED wall":k==="interactive"?"Interactive display":"Flat panel",k,v.n,[...v.sz].join(", ")));
+  // Switching / transport
+  if(avoip){
+    add("enc","Video","AVoIP encoder","avoip_enc",routedSrc.filter(s=>s.type!=="Wireless presentation"||true).length,"1 per source (or per input location)");
+    add("dec","Video","AVoIP decoder","avoip_dec",routedDsp.length,"1 per display");
+    add("netsw","Network","AV network switch","avoip_switch",1,`1 GbE, IGMP snooping + querier, ${routedSrc.length+routedDsp.length+4}+ PoE ports`);
+  } else {
+    if(core.startsWith("Presentation")) add("core","Video","Presentation switcher","pres_sw",1,`${S.sources.length} in / ${S.displays.length} out`);
+    if(core.startsWith("Matrix")) add("core","Video","Matrix switcher","matrix",1,core.replace("Matrix switcher ",""));
+    const longD=S.displays.filter(d=>transport(d.dist)==="HDBaseT").length;
+    const swHasHDBT=core.startsWith("Presentation");
+    if(longD){ if(!swHasHDBT) add("hdtx","Video","HDBaseT transmitter","hdbt_tx",longD,"display side"); add("hdrx","Video","HDBaseT receiver","hdbt_rx",longD,"at displays over 25 ft"); }
+    const remote=S.sources.filter(s=>["Table","Lectern","Wall plate"].includes(s.loc)).length;
+    if(remote && S.infra.rackLoc!=="Credenza") add("srctx","Video","HDBaseT transmitter (input side)","hdbt_tx",remote,"table/wall inputs back to rack");
+  }
+  const tableIn=S.sources.filter(s=>s.loc==="Table").length; if(tableIn) add("tbox","Video","Table input box","tableinput",1,`${tableIn} connection(s)`);
+  // Sources
+  const smap={"Room PC":"pc","Media player":"player","Digital signage player":"player","Cable / IPTV":"iptv","Document camera":"doccam","Wireless presentation":"wireless"};
+  const sc={}; S.sources.forEach(s=>{const k=smap[s.type]; if(k) sc[k]=(sc[k]||0)+1;});
+  Object.entries(sc).forEach(([k,q])=>add("src_"+k,"Source",{pc:"Room PC",player:"Media player",iptv:"IPTV / STB",doccam:"Document camera",wireless:"Wireless presentation"}[k],k,q));
+  // Audio
+  const a=S.audio, dsp=needsDSP();
+  if(dsp==="Open-architecture DSP") add("dsp","Audio","DSP","dsp_open",1, S.conf.platform!=="None"?"AEC required":"");
+  else if(dsp==="Small fixed DSP") add("dsp","Audio","DSP","dsp_small",1);
+  const mmap={"Ceiling array":"mic_ceiling","Table boundary":"mic_table","Gooseneck":"mic_goose","Wireless handheld":"mic_wireless","Wireless lav":"mic_wireless","Wireless headset":"mic_wireless"};
+  a.mics.forEach((m,i)=>add("mic"+i,"Audio","Mic — "+m.type,mmap[m.type],+m.qty||1));
+  const spkMap={"Ceiling":"spk_ceiling","Wall-mount":"spk_wall","Line array / PA":"spk_line"};
+  const nSpk=+a.speakerCount || (S.project.length&&S.project.width?Math.max(2,Math.ceil(S.project.length*S.project.width/150)):0);
+  if(spkMap[a.speakers]){
+    add("spk","Audio",a.speakers+" speakers",spkMap[a.speakers],nSpk||"TBD",a.speakerCount?"":"estimated from room size");
+    const amp=ampSize(nSpk); add("amp","Audio","Amplifier","amp",amp.qty,amp.note);
+  }
+  if(a.assist) add("ald","Audio","Assistive listening","ald",1,"qty receivers per ADA occupancy table");
+  // Conferencing
+  const c=S.conf;
+  if(c.platform!=="None" && !c.platform.startsWith("BYOD")){
+    if(c.cameraType==="Video bar (integrated)" || (+S.project.seats||0)<=8) add("vc","Conferencing","Video bar / room kit","vc_teams",1,c.platform);
+    else add("vc","Conferencing","Room compute + touch console","vc_compute",1,c.platform);
+  }
+  if(c.platform!=="None" && c.cameras && c.cameraType!=="Video bar (integrated)") add("cam","Conferencing","Camera"+(c.tracking?" (tracking)":""),"cam_ptz",+c.cameras);
+  if(c.usbBridge || c.platform.startsWith("BYOD") || c.platform.startsWith("Hybrid")) add("usb","Conferencing","BYOD / USB bridge","usb_bridge",1);
+  // Control
+  const t=S.control.type;
+  if(t==="Touch panel") add("tp","Control","Touch panel","touch",+S.control.panels||1);
+  if(t==="Button keypad") add("kp","Control","Keypad","keypad",+S.control.panels||1);
+  if(["Touch panel","Button keypad","Mobile / web UI"].includes(t)) add("proc","Control","Control processor","processor",1);
+  if(S.control.scheduler) add("sched","Control","Scheduling panel","scheduler",1);
+  if(S.control.occupancy) add("occ","Control","Occupancy sensor","occupancy",1);
+  add("rack","Infrastructure",S.infra.rackLoc+" rack / power","rack",1,S.infra.network);
+  return L;
+}
+function ampSize(n){
+  if(!n) return {qty:1,note:"size once speaker count is known"};
+  const tap=S.audio.speakers==="Line array / PA"?60:15, need=Math.ceil(n*tap*1.25);
+  if(n<=4 && S.audio.speakers!=="Line array / PA") return {qty:1,note:`${n} spkrs — low-Z possible; or 70 V @ ${tap} W taps ≈ ${need} W`};
+  return {qty:Math.max(1,Math.ceil(need/300)),note:`70 V: ${n} × ${tap} W taps × 1.25 headroom ≈ ${need} W`};
+}
+function choices(catKey){
+  const eco=S.infra.eco||"auto", list=CAT[catKey]||[];
+  if(eco==="auto") return list;
+  const pref=list.filter(p=>p[3]===eco), rest=list.filter(p=>p[3]!==eco);
+  return [...pref,...rest];
+}
+function pickOf(it){ const ch=choices(it.catKey); const saved=S.picks[it.key]; return ch.find(p=>p[0]+" "+p[1]===saved)||ch[0]; }
+function setPick(k,v){ S.picks[k]=v; save(); render(); }
+
+function bom(){
+  const rows=items().map(it=>{
+    const ch=choices(it.catKey), p=pickOf(it);
+    const sel=ch.length?`<select class="noprint-sel" onchange="setPick('${it.key}',this.value)">${ch.map(c=>{const v=c[0]+" "+c[1];return `<option ${p&&v===p[0]+" "+p[1]?"selected":""}>${esc(v)}</option>`}).join("")}</select>`:"";
+    return `<tr><td>${it.cat}</td><td><b>${esc(it.role)}</b><br>${sel}<div class="q" style="margin:0;font-size:.78rem">${p?esc(p[2]):""}</div></td><td class="c">${it.qty}</td><td>${esc(it.note)}</td></tr>`;
+  }).join("");
+  return `<div class="noprint" style="margin-bottom:.4rem;font-size:.85rem;color:var(--mute)">Ecosystem: <select style="width:auto" onchange="S.infra.eco=this.value;save();render()">${Object.entries(ECOS).map(([k,v])=>`<option value="${k}" ${S.infra.eco==k?"selected":""}>${v}</option>`).join("")}</select> · pick a model on any line</div>
+  <div style="overflow-x:auto"><table><tr><th>Category</th><th>Item / model</th><th class="c">Qty</th><th>Notes</th></tr>${rows}</table></div>
+  <div class="noprint" style="margin-top:.5rem"><button onclick="exportCSV()">Download BOM (CSV)</button></div>
+  <p class="q" style="font-size:.78rem">Models are starting points — confirm current part numbers, compatibility and lead times with your distributor.</p>`;
+}
+function exportCSV(){
+  const q=s=>`"${String(s??"").replace(/"/g,'""')}"`;
+  const lines=[["Category","Role","Brand","Model","Description","Qty","Notes"].map(q).join(",")];
+  items().forEach(it=>{const p=pickOf(it)||["","",""]; lines.push([it.cat,it.role,p[0],p[1],p[2],it.qty,it.note].map(q).join(","));});
+  dl(new Blob([lines.join("\n")],{type:"text/csv"}),(S.project.name||"av-design")+"-bom.csv");
+}
+
+function diagram(){
+  const src=S.sources, dsp=S.displays, rowH=46, top=40;
+  const rows=Math.max(src.length,dsp.length,3);
+  const vidH=top+rows*rowH;
+  const audioOn = S.audio.mics.length || S.audio.speakers!=="Display speakers only";
+  const H=vidH+(audioOn?150:20)+(S.conf.platform!=="None"?0:0);
+  const W=860, sx=20, cx=340, dx=640, bw=200, bh=32;
+  const core=recommendCore().name;
+  let g=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:640px;font-family:system-ui,sans-serif;font-size:12px">
+  <rect width="${W}" height="${H}" fill="#0c1116"/>
+  <text x="${sx}" y="22" fill="#8b98a5">SOURCES</text><text x="${cx}" y="22" fill="#8b98a5">CORE</text><text x="${dx}" y="22" fill="#8b98a5">DISPLAYS</text>`;
+  const sy=i=>top+i*rowH, coreY=top, coreH=Math.max(bh,rows*rowH-14);
+  // lines
+  src.forEach((s,i)=>{ if(routed().some(r=>r[0]===s.id)) g+=`<path d="M${sx+bw} ${sy(i)+bh/2} C ${sx+bw+60} ${sy(i)+bh/2}, ${cx-60} ${coreY+coreH/2}, ${cx} ${coreY+coreH/2}" stroke="#4fb3ff" fill="none" stroke-width="1.5"/>`; });
+  dsp.forEach((d,i)=>{ if(routed().some(r=>r[1]===d.id)){ const t=transport(d.dist); g+=`<path d="M${cx+180} ${coreY+coreH/2} C ${dx-60} ${coreY+coreH/2}, ${cx+240} ${sy(i)+bh/2}, ${dx} ${sy(i)+bh/2}" stroke="#4fb3ff" fill="none" stroke-width="1.5"/>${t!=="?"?`<text x="${dx-8}" y="${sy(i)+bh/2-5}" text-anchor="end" fill="#ffb454" font-size="10">${t}</text>`:""}`; }});
+  src.forEach((s,i)=>g+=box(sx,sy(i),bw,bh,s.name,s.loc,"#1a2129","#2c3742"));
+  if(core.startsWith("AV over IP")){ const e=pickOf({key:"enc",catKey:"avoip_enc"}), d=pickOf({key:"dec",catKey:"avoip_dec"});
+    src.forEach((s,i)=>{ if(routed().some(r=>r[0]===s.id)) g+=`<text x="${sx+bw+6}" y="${sy(i)+bh/2-5}" fill="#ffb454" font-size="10">ENC</text>`; });
+    dsp.forEach((x,i)=>{ if(routed().some(r=>r[1]===x.id)) g+=`<text x="${dx-8}" y="${sy(i)+bh/2+14}" text-anchor="end" fill="#ffb454" font-size="10">DEC</text>`; });
+    g+=`<text x="${cx}" y="${coreY+coreH+14}" fill="#8b98a5" font-size="10">${esc(e[0]+" "+e[1])} → ${esc(d[1])}</text>`; }
+  g+=box(cx,coreY,180,coreH,core,"","#13202b","#4fb3ff");
+  dsp.forEach((d,i)=>g+=box(dx,sy(i),bw,bh,d.name,`${d.type}${d.size?" · "+d.size+'"':""}`,"#1a2129","#2c3742"));
+  if(audioOn){
+    const ay=vidH+40, dp=items().find(i=>i.key==="dsp"), ap=items().find(i=>i.key==="amp"), dspName=dp?pickOf(dp)[0]+" "+pickOf(dp)[1]:(needsDSP()||"Audio");
+    g+=`<text x="${sx}" y="${ay-12}" fill="#8b98a5">AUDIO</text>`;
+    const micLbl=S.audio.mics.map(m=>`${m.qty||1}× ${m.type}`).join(", ")||"Source audio";
+    g+=box(sx,ay,bw,bh,"Mics",micLbl,"#1a2129","#2c3742");
+    g+=box(cx,ay,180,bh,dspName,S.conf.platform!=="None"?"AEC / mix":"mix","#13202b","#7bd88f");
+    g+=box(dx,ay,bw,bh,"Speakers",`${S.audio.speakerCount||"?"}× ${S.audio.speakers}${ap?" · amp: "+pickOf(ap)[1]:""}`,"#1a2129","#2c3742");
+    g+=`<line x1="${sx+bw}" y1="${ay+bh/2}" x2="${cx}" y2="${ay+bh/2}" stroke="#7bd88f" stroke-width="1.5"/><line x1="${cx+180}" y1="${ay+bh/2}" x2="${dx}" y2="${ay+bh/2}" stroke="#7bd88f" stroke-width="1.5"/>`;
+    g+=`<line x1="${cx+90}" y1="${coreY+coreH}" x2="${cx+90}" y2="${ay}" stroke="#7bd88f" stroke-dasharray="4 3"/><text x="${cx+96}" y="${(coreY+coreH+ay)/2}" fill="#7bd88f" font-size="10">program audio</text>`;
+    if(S.conf.platform!=="None"){ const cy=ay+60; g+=box(cx,cy,180,bh,S.conf.platform.split(" (")[0],`${S.conf.cameras||0} camera(s)`,"#1a2129","#ffb454"); g+=`<line x1="${cx+90}" y1="${ay+bh}" x2="${cx+90}" y2="${cy}" stroke="#ffb454" stroke-dasharray="4 3"/>`; }
+  }
+  return g+"</svg>";
+}
+function box(x,y,w,h,t,sub,fill,stroke){
+  const cut=(s,n)=>{s=String(s||"");return s.length>n?s.slice(0,n-1)+"…":s};
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${fill}" stroke="${stroke}"/>
+  <text x="${x+10}" y="${y+(sub?14:h/2+4)}" fill="#e6edf3" font-weight="600">${esc(cut(t,28))}</text>
+  ${sub?`<text x="${x+10}" y="${y+26}" fill="#8b98a5" font-size="10">${esc(cut(sub,34))}</text>`:""}`;
+}
+
+// ---------- Render / IO ----------
+function render(){
+  document.getElementById("steps").innerHTML = STEPS.map((s,i)=>`<button class="${i===step?"on":""}" onclick="go(${i})">${i+1}. ${s}</button>`).join("");
+  document.getElementById("view").innerHTML = `<div class="card">${V[STEPS[step]]()}
+   <div class="nav noprint"><button onclick="go(${step-1})" ${step===0?"disabled":""}>← Back</button>
+   ${step<STEPS.length-1?`<button class="pri" onclick="go(${step+1})">Next →</button>`:""}</div></div>`;
+}
+function go(i){ if(i<0||i>=STEPS.length) return; step=i; render(); window.scrollTo(0,0); }
+function exportJSON(){ dl(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}),(S.project.name||"av-design")+".json"); }
+function downloadSVG(){ dl(new Blob([diagram()],{type:"image/svg+xml"}),(S.project.name||"av-design")+".svg"); }
+function dl(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
+function importJSON(e){ const f=e.target.files[0]; if(!f) return; f.text().then(t=>{ try{ S=Object.assign(blank(),JSON.parse(t)); save(); step=0; render(); }catch(err){ document.getElementById("view").insertAdjacentHTML("afterbegin",'<div class="note warn">Could not read that file.</div>'); } }); }
+function resetAll(){ if(confirm("Start a new design? Unsaved work will be cleared (export first if you want it).")){ S=blank(); save(); step=0; render(); } }
+render();
+</script>
+</body>
+</html>
