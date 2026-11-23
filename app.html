@@ -56,22 +56,95 @@ td.c,th.c{text-align:center}
   .diagram{background:#fff}
 }
 body{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom)}
+
+/* ---- UX pass: mobile-first ---- */
+html{-webkit-text-size-adjust:100%}
+body{-webkit-tap-highlight-color:transparent}
+input,select,textarea{font-size:16px;min-height:44px;border-radius:8px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(79,179,255,.18)}
+button{min-height:40px;border-radius:8px}
+button.sm{min-height:32px}
+button:disabled{opacity:.35;cursor:default}
+button:active{transform:scale(.98)}
+input[type=checkbox]{accent-color:var(--acc);width:22px!important;height:22px;min-height:0;flex:none}
+.chk{padding:.45rem 0;font-size:1rem;gap:.7rem;cursor:pointer}
+header{position:sticky;top:0;z-index:20;background:rgba(15,20,25,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding-top:calc(.7rem + env(safe-area-inset-top));padding-bottom:.7rem}
+header .tools{display:flex;align-items:center;gap:.3rem}
+header .tools button{margin:0;min-height:34px;padding:.3rem .65rem;font-size:.8rem}
+#saved{font-size:.75rem;color:var(--ok);opacity:0;transition:opacity .4s;margin-right:.4rem}
+#saved.show{opacity:1}
+.stepper{margin:.2rem 0 1rem}
+.stepper .meta{display:flex;justify-content:space-between;align-items:baseline;font-size:.8rem;color:var(--mute);margin-bottom:.4rem}
+.stepper .meta b{color:var(--text);font-size:.95rem}
+.bar{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:.6rem}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .3s}
+.steps{flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;margin:0 -1rem;padding:0 1rem .2rem}
+.steps::-webkit-scrollbar{display:none}
+.steps button{flex:none;scroll-snap-align:center;min-height:34px;white-space:nowrap}
+.steps button.done::after{content:" ✓"}
+.steps button.on{background:#13202b}
+.card{border-radius:14px;padding:1.3rem 1.1rem}
+.card h2{font-size:1.4rem;letter-spacing:-.01em;line-height:1.2}
+.item{background:#151b22;border-radius:12px;padding:.8rem .9rem .9rem}
+.item .x{min-height:30px;min-width:30px;padding:0;background:transparent;border-color:transparent;color:var(--mute)}
+.empty{border:1.5px dashed var(--line);border-radius:12px;padding:1.4rem;text-align:center;color:var(--mute);margin:.6rem 0}
+.addrow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+.addrow button{flex:1;min-width:140px;border-style:dashed}
+.chips{display:flex;gap:.4rem;overflow-x:auto;scrollbar-width:none;padding:.2rem 0}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:none;border-radius:999px;font-size:.82rem;min-height:34px}
+main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
+.navbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(15,20,25,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:.7rem 1rem calc(.7rem + env(safe-area-inset-bottom))}
+.navbar .in{max-width:1100px;margin:0 auto;display:flex;gap:.6rem}
+.navbar button{min-height:48px;font-size:1rem}
+.navbar .back{flex:0 0 auto;padding:0 1.1rem}
+.navbar .pri{flex:1}
+.view-enter{animation:fade .22s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.view-enter{animation:none}}
+@media (max-width:600px){
+  header{flex-wrap:nowrap;gap:.5rem;padding-left:.9rem;padding-right:.9rem}
+  header h1{font-size:.95rem;white-space:nowrap}
+  #saved{display:none}
+  .tools .lbl{display:none}
+  main{padding-left:.8rem;padding-right:.8rem}
+  .grid{grid-template-columns:1fr 1fr}
+  .grid>div:has(textarea){grid-column:1/-1}
+  table{font-size:.82rem}
+}
+.hint{display:none;font-size:.78rem;color:var(--mute);margin:.3rem 0 0}
+.bom select{min-height:36px;font-size:15px;margin:.3rem 0 .1rem}
+@media (max-width:600px){
+  .hint{display:block}
+  .bom,.bom tbody{display:block}
+  .bom tr.hd{display:none}
+  .bom tr{display:grid;grid-template-columns:1fr auto;gap:0 .6rem;background:#151b22;border:1px solid var(--line);border-radius:12px;padding:.7rem .8rem;margin:.5rem 0}
+  .bom td{border:0;padding:0}
+  .bom .cat{grid-column:1/-1;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--acc2)}
+  .bom .itm{grid-column:1}
+  .bom .qty{grid-column:2;grid-row:2;align-self:start;font-weight:700;font-size:1.05rem}
+  .bom .nt{grid-column:1/-1;font-size:.8rem;color:var(--mute);padding-top:.2rem}
+  .bom .nt:empty{display:none}
+}
+@media print{.navbar,.stepper{display:none!important}header{position:static}}
 </style>
 </head>
 <body>
 <header>
   <a href="./" style="display:flex;align-items:center;gap:.5rem;color:inherit;text-decoration:none"><img src="icon.svg" width="28" height="28" alt=""><h1>AV <span>DESIGN</span> SKETCH</h1></a>
   <div class="tools">
-    <button onclick="exportJSON()">Export</button>
-    <button onclick="document.getElementById('imp').click()">Import</button>
-    <button onclick="resetAll()">New</button>
+    <span id="saved">Saved ✓</span>
+    <button onclick="exportJSON()" title="Export project">⤓<span class="lbl"> Export</span></button>
+    <button onclick="document.getElementById('imp').click()" title="Import project">⤒<span class="lbl"> Import</span></button>
+    <button onclick="resetAll()" title="New design">＋<span class="lbl"> New</span></button>
     <input type="file" id="imp" accept=".json" hidden onchange="importJSON(event)">
   </div>
 </header>
 <main>
-  <div class="steps" id="steps"></div>
+  <div class="stepper"><div class="meta" id="meta"></div><div class="bar"><i id="barfill"></i></div><div class="steps" id="steps"></div></div>
   <div id="view"></div>
 </main>
+<div class="navbar noprint"><div class="in" id="navbar"></div></div>
 
 <script>
 const STEPS = ["Project","Displays","Sources","Routing","Audio","Conferencing","Control","Infrastructure","Sketch"];
@@ -139,7 +212,8 @@ let S = load() || blank();
 let step = 0;
 
 function load(){ try{ return JSON.parse(localStorage.getItem("avsketch")); }catch(e){ return null; } }
-function save(){ try{ localStorage.setItem("avsketch", JSON.stringify(S)); }catch(e){} }
+let savedT;
+function save(){ try{ localStorage.setItem("avsketch", JSON.stringify(S)); const el=document.getElementById("saved"); if(el){ el.classList.add("show"); clearTimeout(savedT); savedT=setTimeout(()=>el.classList.remove("show"),1200);} }catch(e){} }
 const uid = () => Math.random().toString(36).slice(2,8);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const opts = (arr, v) => arr.map(o => `<option ${o==v?"selected":""}>${esc(o)}</option>`).join("");
@@ -159,7 +233,8 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => { if(e.target.dataset.rerender) render(); });
 
 function field(label, k, val, type="text", extra=""){
-  return `<div><label>${label}</label><input type="${type}" data-k="${k}" value="${esc(val)}" ${extra}></div>`;
+  const im = type==="number" ? 'inputmode="decimal"' : "";
+  return `<div><label>${label}</label><input type="${type}" ${im} data-k="${k}" value="${esc(val)}" ${extra}></div>`;
 }
 function sel(label, k, arr, val, rr=false){
   return `<div><label>${label}</label><select data-k="${k}" ${rr?'data-rerender="1"':""}>${opts(arr,val)}</select></div>`;
@@ -185,8 +260,8 @@ Displays(){
    ${field("Location","displays."+i+".loc",d.loc)}${field("Cable distance from rack (ft)","displays."+i+".dist",d.dist,"number")}</div></div>`).join("");
   const rec = sizeHint();
   return `<h2>How many displays are we trying to get to?</h2><p class="q">Add every screen in the design — main displays, confidence monitors, signage, overflow.</p>
-  ${list || '<p class="q">No displays yet.</p>'}
-  <button onclick="addDisplay()">+ Add display</button> <button onclick="addDisplay(2)">+ Add 2</button>
+  ${list || '<div class="empty">No displays yet — add the first screen this system needs to reach.</div>'}
+  <div class="addrow"><button onclick="addDisplay()">＋ Add display</button><button onclick="addDisplay(2)">＋ Add 2</button></div>
   ${rec?`<div class="note">${rec}</div>`:""}`;
 },
 Sources(){
@@ -194,9 +269,9 @@ Sources(){
    <div class="grid">${field("Name","sources."+i+".name",s.name)}${sel("Type","sources."+i+".type",SOURCE_TYPES,s.type)}
    ${sel("Location","sources."+i+".loc",LOCS,s.loc)}${chk("Carries audio","sources."+i+".audio",s.audio)}</div></div>`).join("");
   return `<h2>What are we trying to get to them?</h2><p class="q">List every source that needs to be seen — and where it plugs in.</p>
-  ${list || '<p class="q">No sources yet.</p>'}
-  <button onclick="addSource()">+ Add source</button>
-  <div class="noprint" style="margin-top:.6rem">Quick add: ${SOURCE_TYPES.slice(0,6).map(t=>`<button class="sm" onclick="addSource('${t}')">${t.split(" (")[0]}</button>`).join(" ")}</div>`;
+  ${list || '<div class="empty">No sources yet — tap a common one below to start.</div>'}
+  <label>Quick add</label><div class="chips noprint">${SOURCE_TYPES.map(t=>`<button onclick="addSource('${t}')">＋ ${t.split(" (")[0]}</button>`).join("")}</div>
+  <div class="addrow"><button onclick="addSource()">＋ Add custom source</button></div>`;
 },
 Routing(){
   if(!S.displays.length || !S.sources.length) return `<h2>Routing</h2><div class="note warn">Add at least one display and one source first.</div>`;
@@ -224,8 +299,8 @@ Audio(){
   <div class="grid">${sel("Speaker type","audio.speakers",["Ceiling","Wall-mount","Soundbar","Display speakers only","Line array / PA"],a.speakers)}
   ${field("Speaker qty","audio.speakerCount",a.speakerCount,"number")}
   ${sel("DSP","audio.dsp",["auto","Not needed","Small fixed DSP","Open-architecture DSP","Built into codec/bar"],a.dsp)}</div>
-  <h3 style="font-size:1rem;margin:1rem 0 .2rem">Microphones</h3>${mics||'<p class="q">No mics.</p>'}
-  <button onclick="S.audio.mics.push({type:'Ceiling array',qty:1});save();render()">+ Add mics</button>
+  <h3 style="font-size:1rem;margin:1rem 0 .2rem">Microphones</h3>${mics||'<div class="empty">No microphones. Add some if people in the room need to be heard (conferencing or reinforcement).</div>'}
+  <div class="addrow"><button onclick="S.audio.mics.push({type:'Ceiling array',qty:1});save();render()">＋ Add microphones</button></div>
   ${a.speakerCount==="" && S.project.length && S.project.width ? `<div class="note">Rough ceiling speaker count for ${S.project.length}×${S.project.width} ft at ~9 ft ceiling: <b>${Math.max(2,Math.ceil(S.project.length*S.project.width/150))}</b></div>`:""}`;
 },
 Conferencing(){
@@ -262,8 +337,8 @@ Infrastructure(){
 Sketch(){
   const core = recommendCore();
   return `<h2>${esc(S.project.name||"Untitled design")} <span class="tag">${esc(S.project.roomType)}</span></h2>
-  <p class="q">${esc(S.project.client)} ${S.project.seats?"· "+S.project.seats+" seats":""}</p>
-  <div class="diagram">${diagram()}</div>
+  <p class="q">${[esc(S.project.client), S.project.seats?S.project.seats+" seats":""].filter(Boolean).join(" · ")}</p>
+  <div class="diagram">${diagram()}</div><div class="hint noprint">Swipe the diagram sideways to see all of it →</div>
   <h3 style="font-size:1rem">Equipment sketch</h3>${bom()}
   <h3 style="font-size:1rem">Open items</h3>${(checks().map(n=>`<div class="note warn">${n}</div>`).join(""))||'<div class="note">No open flags.</div>'}
   <div class="noprint" style="margin-top:1rem"><button class="pri" onclick="window.print()">Print / Save PDF</button> <button onclick="downloadSVG()">Download diagram (SVG)</button></div>`;
@@ -395,10 +470,10 @@ function bom(){
   const rows=items().map(it=>{
     const ch=choices(it.catKey), p=pickOf(it);
     const sel=ch.length?`<select class="noprint-sel" onchange="setPick('${it.key}',this.value)">${ch.map(c=>{const v=c[0]+" "+c[1];return `<option ${p&&v===p[0]+" "+p[1]?"selected":""}>${esc(v)}</option>`}).join("")}</select>`:"";
-    return `<tr><td>${it.cat}</td><td><b>${esc(it.role)}</b><br>${sel}<div class="q" style="margin:0;font-size:.78rem">${p?esc(p[2]):""}</div></td><td class="c">${it.qty}</td><td>${esc(it.note)}</td></tr>`;
+    return `<tr><td class="cat">${it.cat}</td><td class="itm"><b>${esc(it.role)}</b><br>${sel}<div class="q" style="margin:0;font-size:.78rem">${p?esc(p[2]):""}</div></td><td class="c qty">×${it.qty}</td><td class="nt">${esc(it.note)}</td></tr>`;
   }).join("");
   return `<div class="noprint" style="margin-bottom:.4rem;font-size:.85rem;color:var(--mute)">Ecosystem: <select style="width:auto" onchange="S.infra.eco=this.value;save();render()">${Object.entries(ECOS).map(([k,v])=>`<option value="${k}" ${S.infra.eco==k?"selected":""}>${v}</option>`).join("")}</select> · pick a model on any line</div>
-  <div style="overflow-x:auto"><table><tr><th>Category</th><th>Item / model</th><th class="c">Qty</th><th>Notes</th></tr>${rows}</table></div>
+  <div style="overflow-x:auto"><table class="bom"><tr class="hd"><th>Category</th><th>Item / model</th><th class="c">Qty</th><th>Notes</th></tr>${rows}</table></div>
   <div class="noprint" style="margin-top:.5rem"><button onclick="exportCSV()">Download BOM (CSV)</button></div>
   <p class="q" style="font-size:.78rem">Models are starting points — confirm current part numbers, compatibility and lead times with your distributor.</p>`;
 }
@@ -452,13 +527,32 @@ function box(x,y,w,h,t,sub,fill,stroke){
 }
 
 // ---------- Render / IO ----------
-function render(){
-  document.getElementById("steps").innerHTML = STEPS.map((s,i)=>`<button class="${i===step?"on":""}" onclick="go(${i})">${i+1}. ${s}</button>`).join("");
-  document.getElementById("view").innerHTML = `<div class="card">${V[STEPS[step]]()}
-   <div class="nav noprint"><button onclick="go(${step-1})" ${step===0?"disabled":""}>← Back</button>
-   ${step<STEPS.length-1?`<button class="pri" onclick="go(${step+1})">Next →</button>`:""}</div></div>`;
+function isDone(i){
+  switch(STEPS[i]){
+    case "Project": return !!(S.project.name||S.project.seats);
+    case "Displays": return S.displays.length>0;
+    case "Sources": return S.sources.length>0;
+    case "Routing": return routed().length>0;
+    default: return (S.visited||[]).includes(i);
+  }
 }
-function go(i){ if(i<0||i>=STEPS.length) return; step=i; render(); window.scrollTo(0,0); }
+function render(animate){
+  S.visited=S.visited||[];
+  const last=STEPS.length-1;
+  document.getElementById("meta").innerHTML=`<b>${STEPS[step]}</b><span>Step ${step+1} of ${STEPS.length}</span>`;
+  document.getElementById("barfill").style.width=((step+1)/STEPS.length*100)+"%";
+  const st=document.getElementById("steps");
+  st.innerHTML = STEPS.map((s,i)=>`<button class="${i===step?"on":""} ${i!==step&&isDone(i)?"done":""}" onclick="go(${i})">${i+1}. ${s}</button>`).join("");
+  const on=st.querySelector(".on"); if(on) st.scrollLeft = on.offsetLeft - st.clientWidth/2 + on.clientWidth/2;
+  const y=window.scrollY;
+  document.getElementById("view").innerHTML = `<div class="card ${animate?"view-enter":""}">${V[STEPS[step]]()}</div>`;
+  if(!animate) window.scrollTo(0,y);
+  document.getElementById("navbar").innerHTML =
+    `<button class="back" onclick="go(${step-1})" ${step===0?"disabled":""} aria-label="Back">←</button>`+
+    (step<last ? `<button class="pri" onclick="go(${step+1})">Next: ${STEPS[step+1]} →</button>`
+               : `<button class="pri" onclick="window.print()">Print / Save PDF</button>`);
+}
+function go(i){ if(i<0||i>=STEPS.length) return; S.visited=[...new Set([...(S.visited||[]),step])]; save(); step=i; render(true); window.scrollTo(0,0); }
 function exportJSON(){ dl(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}),(S.project.name||"av-design")+".json"); }
 function downloadSVG(){ dl(new Blob([diagram()],{type:"image/svg+xml"}),(S.project.name||"av-design")+".svg"); }
 function dl(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
