@@ -490,7 +490,8 @@ function diagram(){
   const vidH=top+rows*rowH;
   const audioOn = S.audio.mics.length || S.audio.speakers!=="Display speakers only";
   const H=vidH+(audioOn?150:20)+(S.conf.platform!=="None"?0:0);
-  const W=860, sx=20, cx=340, dx=640, bw=200, bh=32;
+  // Always landscape: width is at least 1.6× height (engineering sheet convention)
+  const W=Math.max(860, Math.ceil(H*1.6)), sx=20, bw=200, bh=32, dx=W-bw-20, cx=Math.round((W-180)/2);
   const core=recommendCore().name;
   let g=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:640px;font-family:system-ui,sans-serif;font-size:12px">
   <rect width="${W}" height="${H}" fill="#0c1116"/>
