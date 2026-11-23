@@ -2,9 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AV Design Sketch</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AV Sketch">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1419">
 <style>
 :root{--bg:#0f1419;--panel:#1a2129;--line:#2c3742;--text:#e6edf3;--mute:#8b98a5;--acc:#4fb3ff;--acc2:#ffb454;--ok:#7bd88f;--bad:#ff6b6b}
 *{box-sizing:border-box}
@@ -48,6 +55,7 @@ td.c,th.c{text-align:center}
   .card{border:1px solid #ccc;background:#fff;break-inside:avoid}
   .diagram{background:#fff}
 }
+body{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom)}
 </style>
 </head>
 <body>
