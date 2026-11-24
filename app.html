@@ -116,6 +116,18 @@ main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
 .itm>input,.nt>input{margin-top:.35rem}
 .bom input{min-height:38px;font-size:16px;padding:.35rem .5rem}
 .xrow td{vertical-align:top}
+.rv{border-top:1px solid var(--line);padding-top:.9rem;margin-top:1rem}
+.rv h3{font-size:1rem;margin:0 0 .3rem}
+.rvprev{background:var(--field);border:1px solid var(--line);border-radius:10px;padding:.4rem;margin:.6rem 0 .2rem;cursor:zoom-in;max-height:260px;overflow:hidden}
+.rvprev svg{display:block;width:100%;height:auto}
+.pickrow{display:flex;flex-wrap:wrap;gap:.35rem;margin:.25rem 0 .4rem}
+.pickrow button{border-radius:999px}
+.rvrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.4rem .8rem;padding:.5rem 0;border-bottom:1px dashed var(--line)}
+.rvname{display:flex;flex-direction:column;min-width:10rem}
+.rvname span{font-size:.8rem;color:var(--mute)}
+.rvctl{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.rvctl input{width:5.5rem}
+.rvctl .pickrow{margin:0}
 .hint{display:none;font-size:.78rem;color:var(--mute);margin:.3rem 0 0}
 .bom select{min-height:36px;font-size:15px;margin:.3rem 0 .1rem}
 @media (max-width:600px){
@@ -153,7 +165,7 @@ main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
 <div class="navbar noprint"><div class="in" id="navbar"></div></div>
 
 <script>
-const STEPS = ["Project","Displays","Sources","Routing","Audio","Cameras","Control","Infrastructure","Sketch"];
+const STEPS = ["Project","Displays","Sources","Routing","Audio","Cameras","Control","Infrastructure","Review","Sketch"];
 const DISPLAY_TYPES = ["Flat panel","Projector + screen","LED video wall","Interactive display","Confidence monitor"];
 const SOURCE_TYPES = ["Laptop (HDMI/USB-C)","Wireless presentation","Room PC","Cable / IPTV","Media player","Document camera","Camera feed","Digital signage player","Blu-ray / other"];
 const LOCS = ["Table","Lectern","Wall plate","Credenza","Equipment rack","Ceiling","Remote room / IDF"];
@@ -255,6 +267,9 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 const opts = (arr, v) => arr.map(o => `<option ${o==v?"selected":""}>${esc(o)}</option>`).join("");
 
 // Bind helper: data-k="path.to.value"
+function panelLocGuess(){ return S.sources.find(x=>x.loc==="Lectern")?"Lectern":S.sources.find(x=>x.loc==="Table")?"Table":"Lectern"; }
+// one-tap choice row used on the Review step
+function pickRow(path,cur,opts,labels){ return `<div class="pickrow">${opts.map((o,i)=>`<button class="sm ${String(cur)===String(o)?"pri":""}" onclick='setPath(${JSON.stringify(path)},${JSON.stringify(o)});renderKeepFocus()'>${esc(labels?labels[i]:o)}</button>`).join("")}</div>`; }
 function setPath(path, val){
   const keys = path.split("."); let o = S;
   for(let i=0;i<keys.length-1;i++) o = o[keys[i]];
@@ -388,6 +403,33 @@ Infrastructure(){
   <div><label>Preferred ecosystem</label><select data-k="infra.eco">${Object.entries(ECOS).map(([k,v])=>`<option value="${k}" ${f.eco==k?"selected":""}>${v}</option>`).join("")}</select></div></div>
   <label>Notes (conduit, floor boxes, furniture, constraints)</label><textarea data-k="infra.notes">${esc(f.notes)}</textarea>
   ${checks().map(n=>`<div class="note warn">${n}</div>`).join("")}`;
+},
+Review(){
+  const core=recommendCore(), it=items(), q=k=>it.find(i=>i.key===k);
+  const prev=exportSVG({});
+  const sec=(t,body)=>`<div class="rv"><h3>${t}</h3>${body}</div>`;
+  const panel=S.control.type==="Touch panel"||S.control.type==="Button keypad";
+  const offRack=S.sources.map((x,i)=>[x,i]).filter(([x])=>x.loc!=="Equipment rack");
+  const runRow=(kind,o,i)=>{ const eff=kind==="displays"?dispT(o):(srcNeedsExt(o)?"HDBaseT":"HDMI");
+    return `<div class="rvrow"><div class="rvname"><b>${esc(o.name)}</b><span>${kind==="displays"?esc(o.type):esc(o.loc)} · ${o.tx&&o.tx!=="Auto"?"set to":"Auto →"} <b>${eff==="?"?"needs a distance":eff}</b></span></div>
+      <div class="rvctl"><input type="number" inputmode="decimal" placeholder="ft" data-k="${kind}.${i}.dist" data-rc="1" value="${esc(o.dist)}" aria-label="Cable distance (ft)">
+      ${pickRow(kind+"."+i+".tx",o.tx||"Auto",["Auto","HDMI","HDBaseT"])}</div></div>`; };
+  const spk=q("spk"), est=S.project.length&&S.project.width?Math.max(2,Math.ceil(S.project.length*S.project.width/150)):"";
+  const flags=checks();
+  return `<h2>Before we draw it</h2><p class="q">Here's what the sketch will assume. Confirm or adjust anything that's off — each change updates the preview.</p>
+  <div class="rvprev" onclick="go(STEPS.length-1)" title="Open the full sketch">${prev.svg.replace(/width="\d+" height="\d+"/,'width="100%"')}</div>
+  ${sec("Switching approach",`<p class="q" style="margin:.2rem 0 .5rem">Using <b>${esc(core.name)}</b>. ${esc(core.why)}</p>
+     ${pickRow("routing.mode",S.routing.mode,["auto","Presentation switcher","Matrix switcher","AV over IP","Direct connection"],["Auto","Presentation","Matrix","AV over IP","Direct"])}`)}
+  ${sec("Placement",`<label>Where does the rack live?</label>${pickRow("infra.rackLoc",S.infra.rackLoc,["Credenza","Lectern","Behind display","Wall rack","Floor rack in room","Closet / IDF"])}
+     ${panel?`<label>Where does the ${S.control.type==="Touch panel"?"touch panel":"keypad"} go?</label>${pickRow("control.loc",S.control.loc||"",["","Table","Lectern","Wall plate"],[`Auto (${panelLocGuess()})`,"Table","Lectern","Wall"])}`:""}
+     <label>Display runs — distance from rack and how they connect</label>${S.displays.map((d,i)=>runRow("displays",d,i)).join("")||'<p class="q">No displays.</p>'}
+     ${offRack.length?`<label>Sources away from the rack</label>${offRack.map(([x,i])=>runRow("sources",x,i)).join("")}`:""}`)}
+  ${sec("Audio",`${spk?`<label>Speaker count ${S.audio.speakerCount===""&&est?`<span class="q">(estimated ${est} from room size)</span>`:""}</label>
+     <div class="rvrow"><div class="rvctl"><input type="number" inputmode="decimal" data-k="audio.speakerCount" data-rc="1" value="${esc(S.audio.speakerCount===""?est:S.audio.speakerCount)}"> <span class="q">${esc(S.audio.speakers)} · ${esc(q("amp")?q("amp").note:"")}</span></div></div>`:""}
+     <label>Echo cancellation (AEC)</label>${pickRow("audio.aec",S.audio.aec||"auto",["auto","Required","Not needed"],[`Auto (${aecOn()?"on":"off"})`,"Required","Not needed"])}`)}
+  ${sec("Drawing",`<label>Network connections</label>${pickRow("view.netLines",!!S.view.netLines,[false,true],["Port tags","Drawn lines"])}
+     <label>Brand preference</label>${pickRow("infra.eco",S.infra.eco||"auto",Object.keys(ECOS),Object.values(ECOS))}`)}
+  ${sec(flags.length?`Open items <span class="q">(${flags.length})</span>`:"Open items",flags.length?flags.map(f=>`<div class="note warn">${f}</div>`).join(""):'<div class="note">Nothing open — ready to draw.</div>')}`;
 },
 Sketch(){
   const core = recommendCore();
@@ -625,7 +667,7 @@ function zoneLayout(N,E,o){
   const srcIdx=id=>+id.replace(/\D/g,""), src=i=>S.sources[i]||{};
   const leftLoc=l=>l==="Equipment rack"?null:l;
   // place for things that sit with the users: lectern/table preferred
-  const userLoc=S.sources.find(x=>x.loc==="Lectern")?"Lectern":S.sources.find(x=>x.loc==="Table")?"Table":"Lectern";
+  const userLoc=S.control.loc||panelLocGuess();
   const Z={}; const z=(key,label,side)=>Z[key]=Z[key]||{key,label,side,ids:[]};
   const put=(id,col,zk,label,side)=>{ if(!N[id]) return; N[id].col=col; N[id].xo=undefined; N[id].zone=zk; z(zk,label,side).ids.push(id); };
   const rackLabel=`Equipment located in ${S.infra.rackLoc} rack`;
@@ -1058,7 +1100,7 @@ function render(animate){
   if(!animate) window.scrollTo(0,y);
   document.getElementById("navbar").innerHTML =
     `<button class="back" onclick="go(${step-1})" ${step===0?"disabled":""} aria-label="Back">←</button>`+
-    (step<last ? `<button class="pri" onclick="go(${step+1})">Next: ${STEPS[step+1]} →</button>`
+    (step<last ? `<button class="pri" onclick="go(${step+1})">${STEPS[step]==="Review"?"Looks good → Draw sketch":`Next: ${STEPS[step+1]} →`}</button>`
                : `<button class="pri" onclick="savePDF(this)">Download PDF</button>`);
 }
 function go(i){ if(i<0||i>=STEPS.length) return; S.visited=[...new Set([...(S.visited||[]),step])]; save(); step=i; render(true); window.scrollTo(0,0); }
