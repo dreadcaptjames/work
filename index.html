@@ -21,8 +21,8 @@ a{color:inherit}
 .wrap{max-width:1080px;margin:0 auto;padding:0 1.25rem}
 nav{display:flex;align-items:center;justify-content:space-between;padding:1rem 0}
 .brand{display:flex;align-items:center;gap:.6rem;font-weight:700;letter-spacing:.05em;text-decoration:none}
-.brand span{color:var(--acc)}
-.btn{display:inline-block;background:var(--acc);color:#04121f;font-weight:600;padding:.75rem 1.3rem;border-radius:8px;text-decoration:none}
+.brand span span{color:var(--acc)}
+.btn{display:inline-block;background:var(--acc);color:var(--onacc);font-weight:600;padding:.75rem 1.3rem;border-radius:8px;text-decoration:none}
 .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
 .btn:hover{filter:brightness(1.08)}
 .hero{display:grid;grid-template-columns:1.1fr 1fr;gap:2.5rem;align-items:center;padding:2rem 0 3rem}
@@ -56,11 +56,13 @@ footer{color:var(--mute);font-size:.82rem;padding:1.5rem 0 2rem;border-top:1px s
 @media (max-width:760px){.hero{grid-template-columns:1fr;padding-top:1.5rem}}
 body{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom)}
 </style>
+<script src="themes.js"></script>
 </head>
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="./"><img src="icon.svg" width="32" height="32" alt="">AV <span>DESIGN</span> SKETCH</a>
+    <a class="brand" href="./"><img src="icon.svg" width="32" height="32" alt=""><span>AV <span>DESIGN</span> SKETCH</span></a>
+    <button class="themebtn" onclick="toggleThemes(event)" title="Theme" aria-label="Theme" style="background:var(--btn);color:var(--text);border:1px solid var(--line);border-radius:10px;min-width:44px;min-height:44px;cursor:pointer">◐</button>
   </nav>
 
   <div class="hero">
@@ -76,26 +78,26 @@ body{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left)
     <div class="art" aria-hidden="true">
       <svg viewBox="0 0 420 250" font-family="system-ui,sans-serif" font-size="11">
         <g class="flow" fill="none" stroke-width="2">
-          <path d="M120 40 C170 40 150 125 175 125" stroke="#4fb3ff"/>
-          <path d="M120 95 C160 95 150 125 175 125" stroke="#4fb3ff"/>
-          <path d="M120 150 C160 150 150 125 175 125" stroke="#4fb3ff"/>
-          <path d="M245 125 C275 125 265 40 300 40" stroke="#ffb454"/>
-          <path d="M245 125 H300" stroke="#ffb454"/>
-          <path d="M245 125 C275 125 265 210 300 210" stroke="#ffb454"/>
-          <path d="M210 145 V205" stroke="#7bd88f"/>
+          <path d="M120 40 C170 40 150 125 175 125" style="stroke:var(--acc)"/>
+          <path d="M120 95 C160 95 150 125 175 125" style="stroke:var(--acc)"/>
+          <path d="M120 150 C160 150 150 125 175 125" style="stroke:var(--acc)"/>
+          <path d="M245 125 C275 125 265 40 300 40" style="stroke:var(--acc2)"/>
+          <path d="M245 125 H300" style="stroke:var(--acc2)"/>
+          <path d="M245 125 C275 125 265 210 300 210" style="stroke:var(--acc2)"/>
+          <path d="M210 145 V205" style="stroke:var(--ok)"/>
         </g>
-        <g fill="#0c1116" stroke="#2c3742">
+        <g style="fill:var(--field);stroke:var(--line)">
           <rect x="10" y="25" width="110" height="30" rx="6"/><rect x="10" y="80" width="110" height="30" rx="6"/><rect x="10" y="135" width="110" height="30" rx="6"/>
           <rect x="300" y="25" width="110" height="30" rx="6"/><rect x="300" y="110" width="110" height="30" rx="6"/><rect x="300" y="195" width="110" height="30" rx="6"/>
-          <rect x="175" y="205" width="70" height="30" rx="6" stroke="#7bd88f"/>
+          <rect x="175" y="205" width="70" height="30" rx="6" style="stroke:var(--ok)"/>
         </g>
-        <rect x="175" y="100" width="70" height="45" rx="8" fill="#13202b" stroke="#4fb3ff"/>
-        <g fill="#e6edf3">
+        <rect x="175" y="100" width="70" height="45" rx="8" style="fill:var(--accbg);stroke:var(--acc)"/>
+        <g style="fill:var(--text)">
           <text x="22" y="44">Laptop</text><text x="22" y="99">Wireless</text><text x="22" y="154">Room PC</text>
           <text x="312" y="44">Main display</text><text x="312" y="129">Side display</text><text x="312" y="214">Confidence</text>
           <text x="191" y="127" font-weight="600">CORE</text><text x="194" y="224">DSP</text>
         </g>
-        <g fill="#ffb454" font-size="9"><text x="262" y="35">DEC</text><text x="262" y="120">DEC</text><text x="262" y="205">DEC</text><text x="126" y="34">ENC</text></g>
+        <g font-size="9" style="fill:var(--acc2)"><text x="262" y="35">DEC</text><text x="262" y="120">DEC</text><text x="262" y="205">DEC</text><text x="126" y="34">ENC</text></g>
       </svg>
     </div>
   </div>

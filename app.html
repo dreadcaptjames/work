@@ -29,14 +29,14 @@ main{max-width:1100px;margin:0 auto;padding:1rem}
 .card h2{margin:0 0 .2rem;font-size:1.2rem}
 .card .q{color:var(--mute);margin:0 0 1rem}
 label{display:block;font-size:.82rem;color:var(--mute);margin:.6rem 0 .25rem}
-input,select,textarea{width:100%;background:#0c1116;border:1px solid var(--line);color:var(--text);padding:.5rem .6rem;border-radius:6px;font:inherit}
+input,select,textarea{width:100%;background:var(--field);border:1px solid var(--line);color:var(--text);padding:.5rem .6rem;border-radius:6px;font:inherit}
 textarea{min-height:70px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.2rem .8rem}
 .item{border:1px solid var(--line);border-radius:8px;padding:.6rem .8rem;margin:.6rem 0;position:relative}
 .item .x{position:absolute;top:.4rem;right:.5rem}
-button{background:#24303b;color:var(--text);border:1px solid var(--line);padding:.45rem .8rem;border-radius:6px;cursor:pointer;font:inherit;font-size:.88rem}
+button{background:var(--btn);color:var(--text);border:1px solid var(--line);padding:.45rem .8rem;border-radius:6px;cursor:pointer;font:inherit;font-size:.88rem}
 button:hover{border-color:var(--acc)}
-button.pri{background:var(--acc);color:#04121f;border-color:var(--acc);font-weight:600}
+button.pri{background:var(--acc);color:var(--onacc);border-color:var(--acc);font-weight:600}
 button.sm{padding:.2rem .5rem;font-size:.78rem}
 .nav{display:flex;justify-content:space-between;margin-top:1rem}
 .chk{display:flex;align-items:center;gap:.4rem;color:var(--text);font-size:.9rem;margin:.3rem 0}
@@ -45,10 +45,10 @@ table{width:100%;border-collapse:collapse;font-size:.88rem}
 th,td{border-bottom:1px solid var(--line);padding:.4rem;text-align:left}
 th{color:var(--mute);font-weight:500}
 td.c,th.c{text-align:center}
-.note{background:#13202b;border-left:3px solid var(--acc);padding:.5rem .8rem;margin:.5rem 0;font-size:.88rem;border-radius:0 6px 6px 0}
+.note{background:var(--accbg);border-left:3px solid var(--acc);padding:.5rem .8rem;margin:.5rem 0;font-size:.88rem;border-radius:0 6px 6px 0}
 .note.warn{border-color:var(--acc2)}
-.diagram{overflow-x:auto;background:#0c1116;border-radius:8px;padding:.5rem}
-.tag{display:inline-block;background:#24303b;border-radius:4px;padding:0 .4rem;font-size:.75rem;margin-left:.3rem;color:var(--mute)}
+.diagram{overflow-x:auto;background:var(--field);border-radius:8px;padding:.5rem}
+.tag{display:inline-block;background:var(--btn);border-radius:4px;padding:0 .4rem;font-size:.75rem;margin-left:.3rem;color:var(--mute)}
 @media print{
   body{background:#fff;color:#000}
   header .tools,.steps,.nav,.noprint{display:none!important}
@@ -61,14 +61,14 @@ body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-ri
 html{-webkit-text-size-adjust:100%}
 body{-webkit-tap-highlight-color:transparent}
 input,select,textarea{font-size:16px;min-height:44px;border-radius:8px}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(79,179,255,.18)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--ring)}
 button{min-height:40px;border-radius:8px}
 button.sm{min-height:32px}
 button:disabled{opacity:.35;cursor:default}
 button:active{transform:scale(.98)}
 input[type=checkbox]{accent-color:var(--acc);width:22px!important;height:22px;min-height:0;flex:none}
 .chk{padding:.45rem 0;font-size:1rem;gap:.7rem;cursor:pointer}
-header{position:sticky;top:0;z-index:20;background:rgba(15,20,25,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding-top:calc(.7rem + env(safe-area-inset-top));padding-bottom:.7rem}
+header{position:sticky;top:0;z-index:20;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding-top:calc(.7rem + env(safe-area-inset-top));padding-bottom:.7rem}
 header .tools{display:flex;align-items:center;gap:.3rem}
 header .tools button{margin:0;min-height:34px;padding:.3rem .65rem;font-size:.8rem}
 #saved{font-size:.75rem;color:var(--ok);opacity:0;transition:opacity .4s;margin-right:.4rem}
@@ -82,10 +82,10 @@ header .tools button{margin:0;min-height:34px;padding:.3rem .65rem;font-size:.8r
 .steps::-webkit-scrollbar{display:none}
 .steps button{flex:none;scroll-snap-align:center;min-height:34px;white-space:nowrap}
 .steps button.done::after{content:" ✓"}
-.steps button.on{background:#13202b}
+.steps button.on{background:var(--accbg)}
 .card{border-radius:14px;padding:1.3rem 1.1rem}
 .card h2{font-size:1.4rem;letter-spacing:-.01em;line-height:1.2}
-.item{background:#151b22;border-radius:12px;padding:.8rem .9rem .9rem}
+.item{background:var(--card2);border-radius:12px;padding:.8rem .9rem .9rem}
 .item .x{min-height:30px;min-width:30px;padding:0;background:transparent;border-color:transparent;color:var(--mute)}
 .empty{border:1.5px dashed var(--line);border-radius:12px;padding:1.4rem;text-align:center;color:var(--mute);margin:.6rem 0}
 .addrow{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
@@ -94,7 +94,7 @@ header .tools button{margin:0;min-height:34px;padding:.3rem .65rem;font-size:.8r
 .chips::-webkit-scrollbar{display:none}
 .chips button{flex:none;border-radius:999px;font-size:.82rem;min-height:34px}
 main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
-.navbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(15,20,25,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:.7rem 1rem calc(.7rem + env(safe-area-inset-bottom))}
+.navbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:.7rem 1rem calc(.7rem + env(safe-area-inset-bottom))}
 .navbar .in{max-width:1100px;margin:0 auto;display:flex;gap:.6rem}
 .navbar button{min-height:48px;font-size:1rem}
 .navbar .back{flex:0 0 auto;padding:0 1.1rem}
@@ -118,7 +118,7 @@ main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
   .hint{display:block}
   .bom,.bom tbody{display:block}
   .bom tr.hd{display:none}
-  .bom tr{display:grid;grid-template-columns:1fr auto;gap:0 .6rem;background:#151b22;border:1px solid var(--line);border-radius:12px;padding:.7rem .8rem;margin:.5rem 0}
+  .bom tr{display:grid;grid-template-columns:1fr auto;gap:0 .6rem;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:.7rem .8rem;margin:.5rem 0}
   .bom td{border:0;padding:0}
   .bom .cat{grid-column:1/-1;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--acc2)}
   .bom .itm{grid-column:1}
@@ -128,12 +128,14 @@ main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
 }
 @media print{.navbar,.stepper{display:none!important}header{position:static}}
 </style>
+<script src="themes.js"></script>
 </head>
 <body>
 <header>
   <a href="./" style="display:flex;align-items:center;gap:.5rem;color:inherit;text-decoration:none"><img src="icon.svg" width="28" height="28" alt=""><h1>AV <span>DESIGN</span> SKETCH</h1></a>
   <div class="tools">
     <span id="saved">Saved ✓</span>
+    <button class="themebtn" onclick="toggleThemes(event)" title="Theme" aria-label="Theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;margin:auto"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.9 1.2-1.8-.5-1-.1-2.2 1.1-2.2H17a4 4 0 0 0 4-4c0-5.5-4-10-9-10z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7" r="1.2" fill="currentColor"/><circle cx="15.5" cy="7.5" r="1.2" fill="currentColor"/></svg></button>
     <button onclick="exportJSON()" title="Export project">⤓<span class="lbl"> Export</span></button>
     <button onclick="document.getElementById('imp').click()" title="Import project">⤒<span class="lbl"> Import</span></button>
     <button onclick="resetAll()" title="New design">＋<span class="lbl"> New</span></button>
@@ -212,6 +214,7 @@ const blank = () => ({
 
 let S = load() || blank();
 let step = 0;
+window.onThemeChange = () => { if(document.getElementById("view")) render(); };
 
 function load(){ try{ return JSON.parse(localStorage.getItem("avsketch")); }catch(e){ return null; } }
 let savedT;
@@ -510,6 +513,7 @@ function exportCSV(){
 }
 
 function diagram(){
+  const D=T();
   const src=S.sources, dsp=S.displays, rowH=46, top=40;
   const rows=Math.max(src.length,dsp.length,3);
   const vidH=top+rows*rowH;
@@ -519,37 +523,38 @@ function diagram(){
   const W=Math.max(860, Math.ceil(H*1.6)), sx=20, bw=200, bh=32, dx=W-bw-20, cx=Math.round((W-180)/2);
   const core=recommendCore().name;
   let g=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:640px;font-family:system-ui,sans-serif;font-size:12px">
-  <rect width="${W}" height="${H}" fill="#0c1116"/>
-  <text x="${sx}" y="22" fill="#8b98a5">SOURCES</text><text x="${cx}" y="22" fill="#8b98a5">CORE</text><text x="${dx}" y="22" fill="#8b98a5">DISPLAYS</text>`;
+  <rect width="${W}" height="${H}" fill="${D.field}"/>
+  <text x="${sx}" y="22" fill="${D.mute}">SOURCES</text><text x="${cx}" y="22" fill="${D.mute}">CORE</text><text x="${dx}" y="22" fill="${D.mute}">DISPLAYS</text>`;
   const sy=i=>top+i*rowH, coreY=top, coreH=Math.max(bh,rows*rowH-14);
   // lines
-  src.forEach((s,i)=>{ if(routed().some(r=>r[0]===s.id)) g+=`<path d="M${sx+bw} ${sy(i)+bh/2} C ${sx+bw+60} ${sy(i)+bh/2}, ${cx-60} ${coreY+coreH/2}, ${cx} ${coreY+coreH/2}" stroke="#4fb3ff" fill="none" stroke-width="1.5"/>`; });
-  dsp.forEach((d,i)=>{ if(routed().some(r=>r[1]===d.id)){ const t=transport(d.dist); g+=`<path d="M${cx+180} ${coreY+coreH/2} C ${dx-60} ${coreY+coreH/2}, ${cx+240} ${sy(i)+bh/2}, ${dx} ${sy(i)+bh/2}" stroke="#4fb3ff" fill="none" stroke-width="1.5"/>${t!=="?"?`<text x="${dx-8}" y="${sy(i)+bh/2-5}" text-anchor="end" fill="#ffb454" font-size="10">${t}</text>`:""}`; }});
-  src.forEach((s,i)=>g+=box(sx,sy(i),bw,bh,s.name,s.loc,"#1a2129","#2c3742"));
+  src.forEach((s,i)=>{ if(routed().some(r=>r[0]===s.id)) g+=`<path d="M${sx+bw} ${sy(i)+bh/2} C ${sx+bw+60} ${sy(i)+bh/2}, ${cx-60} ${coreY+coreH/2}, ${cx} ${coreY+coreH/2}" stroke="${D.acc}" fill="none" stroke-width="1.5"/>`; });
+  dsp.forEach((d,i)=>{ if(routed().some(r=>r[1]===d.id)){ const t=transport(d.dist); g+=`<path d="M${cx+180} ${coreY+coreH/2} C ${dx-60} ${coreY+coreH/2}, ${cx+240} ${sy(i)+bh/2}, ${dx} ${sy(i)+bh/2}" stroke="${D.acc}" fill="none" stroke-width="1.5"/>${t!=="?"?`<text x="${dx-8}" y="${sy(i)+bh/2-5}" text-anchor="end" fill="${D.acc2}" font-size="10">${t}</text>`:""}`; }});
+  src.forEach((s,i)=>g+=box(sx,sy(i),bw,bh,s.name,s.loc,D.panel,D.line));
   if(core.startsWith("AV over IP")){ const e=pickOf({key:"enc",catKey:"avoip_enc"}), d=pickOf({key:"dec",catKey:"avoip_dec"});
-    src.forEach((s,i)=>{ if(routed().some(r=>r[0]===s.id)) g+=`<text x="${sx+bw+6}" y="${sy(i)+bh/2-5}" fill="#ffb454" font-size="10">ENC</text>`; });
-    dsp.forEach((x,i)=>{ if(routed().some(r=>r[1]===x.id)) g+=`<text x="${dx-8}" y="${sy(i)+bh/2+14}" text-anchor="end" fill="#ffb454" font-size="10">DEC</text>`; });
-    g+=`<text x="${cx}" y="${coreY+coreH+14}" fill="#8b98a5" font-size="10">${esc(e[0]+" "+e[1])} → ${esc(d[1])}</text>`; }
-  g+=box(cx,coreY,180,coreH,core,"","#13202b","#4fb3ff");
-  dsp.forEach((d,i)=>g+=box(dx,sy(i),bw,bh,d.name,`${d.type}${d.size?" · "+d.size+'"':""}`,"#1a2129","#2c3742"));
+    src.forEach((s,i)=>{ if(routed().some(r=>r[0]===s.id)) g+=`<text x="${sx+bw+6}" y="${sy(i)+bh/2-5}" fill="${D.acc2}" font-size="10">ENC</text>`; });
+    dsp.forEach((x,i)=>{ if(routed().some(r=>r[1]===x.id)) g+=`<text x="${dx-8}" y="${sy(i)+bh/2+14}" text-anchor="end" fill="${D.acc2}" font-size="10">DEC</text>`; });
+    g+=`<text x="${cx}" y="${coreY+coreH+14}" fill="${D.mute}" font-size="10">${esc(e[0]+" "+e[1])} → ${esc(d[1])}</text>`; }
+  g+=box(cx,coreY,180,coreH,core,"",D.accbg,D.acc);
+  dsp.forEach((d,i)=>g+=box(dx,sy(i),bw,bh,d.name,`${d.type}${d.size?" · "+d.size+'"':""}`,D.panel,D.line));
   if(audioOn){
     const ay=vidH+40, dp=items().find(i=>i.key==="dsp"), ap=items().find(i=>i.key==="amp"), dspName=dp?pickOf(dp)[0]+" "+pickOf(dp)[1]:(needsDSP()||"Audio");
-    g+=`<text x="${sx}" y="${ay-12}" fill="#8b98a5">AUDIO</text>`;
+    g+=`<text x="${sx}" y="${ay-12}" fill="${D.mute}">AUDIO</text>`;
     const micLbl=S.audio.mics.map(m=>`${m.qty||1}× ${m.type}`).join(", ")||"Source audio";
-    g+=box(sx,ay,bw,bh,"Mics",micLbl,"#1a2129","#2c3742");
-    g+=box(cx,ay,180,bh,dspName,aecOn()?`AEC ${aecChannels()} ch · mix`:"mix","#13202b","#7bd88f");
-    g+=box(dx,ay,bw,bh,"Speakers",`${S.audio.speakerCount||"?"}× ${S.audio.speakers}${ap?" · amp: "+pickOf(ap)[1]:""}`,"#1a2129","#2c3742");
-    g+=`<line x1="${sx+bw}" y1="${ay+bh/2}" x2="${cx}" y2="${ay+bh/2}" stroke="#7bd88f" stroke-width="1.5"/><line x1="${cx+180}" y1="${ay+bh/2}" x2="${dx}" y2="${ay+bh/2}" stroke="#7bd88f" stroke-width="1.5"/>`;
-    g+=`<line x1="${cx+90}" y1="${coreY+coreH}" x2="${cx+90}" y2="${ay}" stroke="#7bd88f" stroke-dasharray="4 3"/><text x="${cx+96}" y="${(coreY+coreH+ay)/2}" fill="#7bd88f" font-size="10">program audio</text>`;
-    if(S.conf.platform!=="None"){ const cy=ay+60; g+=box(cx,cy,180,bh,S.conf.platform.split(" (")[0],`${S.conf.cameras||0} camera(s)`,"#1a2129","#ffb454"); g+=`<line x1="${cx+90}" y1="${ay+bh}" x2="${cx+90}" y2="${cy}" stroke="#ffb454" stroke-dasharray="4 3"/>`; }
+    g+=box(sx,ay,bw,bh,"Mics",micLbl,D.panel,D.line);
+    g+=box(cx,ay,180,bh,dspName,aecOn()?`AEC ${aecChannels()} ch · mix`:"mix",D.accbg,D.ok);
+    g+=box(dx,ay,bw,bh,"Speakers",`${S.audio.speakerCount||"?"}× ${S.audio.speakers}${ap?" · amp: "+pickOf(ap)[1]:""}`,D.panel,D.line);
+    g+=`<line x1="${sx+bw}" y1="${ay+bh/2}" x2="${cx}" y2="${ay+bh/2}" stroke="${D.ok}" stroke-width="1.5"/><line x1="${cx+180}" y1="${ay+bh/2}" x2="${dx}" y2="${ay+bh/2}" stroke="${D.ok}" stroke-width="1.5"/>`;
+    g+=`<line x1="${cx+90}" y1="${coreY+coreH}" x2="${cx+90}" y2="${ay}" stroke="${D.ok}" stroke-dasharray="4 3"/><text x="${cx+96}" y="${(coreY+coreH+ay)/2}" fill="${D.ok}" font-size="10">program audio</text>`;
+    if(S.conf.platform!=="None"){ const cy=ay+60; g+=box(cx,cy,180,bh,S.conf.platform.split(" (")[0],`${S.conf.cameras||0} camera(s)`,D.panel,D.acc2); g+=`<line x1="${cx+90}" y1="${ay+bh}" x2="${cx+90}" y2="${cy}" stroke="${D.acc2}" stroke-dasharray="4 3"/>`; }
   }
   return g+"</svg>";
 }
 function box(x,y,w,h,t,sub,fill,stroke){
+  const D=T();
   const cut=(s,n)=>{s=String(s||"");return s.length>n?s.slice(0,n-1)+"…":s};
   return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${fill}" stroke="${stroke}"/>
-  <text x="${x+10}" y="${y+(sub?14:h/2+4)}" fill="#e6edf3" font-weight="600">${esc(cut(t,28))}</text>
-  ${sub?`<text x="${x+10}" y="${y+26}" fill="#8b98a5" font-size="10">${esc(cut(sub,34))}</text>`:""}`;
+  <text x="${x+10}" y="${y+(sub?14:h/2+4)}" fill="${D.text}" font-weight="600">${esc(cut(t,28))}</text>
+  ${sub?`<text x="${x+10}" y="${y+26}" fill="${D.mute}" font-size="10">${esc(cut(sub,34))}</text>`:""}`;
 }
 
 // ---------- Render / IO ----------
