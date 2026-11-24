@@ -264,9 +264,17 @@ document.addEventListener("input", e => {
   const k = e.target.dataset.k; if(!k) return;
   const v = e.target.type==="checkbox" ? e.target.checked : (e.target.type==="number" ? +e.target.value : e.target.value);
   setPath(k, v);
-  if(e.target.dataset.rerender) render();
+  if(e.target.dataset.rerender && e.target.tagName!=="INPUT") renderKeepFocus();
 });
-document.addEventListener("change", e => { if(e.target.dataset.rerender || e.target.dataset.rc) render(); });
+// Re-render after focus has moved (e.g. Tab), then put focus back on the same field so Tab order works
+function renderKeepFocus(){
+  setTimeout(()=>{
+    const el=document.activeElement, k=el&&el.dataset?el.dataset.k:null, ss=el&&"selectionStart" in el?[el.selectionStart,el.selectionEnd]:null;
+    render();
+    if(k){ const n=document.querySelector(`[data-k="${CSS.escape(k)}"]`); if(n){ n.focus({preventScroll:true}); if(ss&&n.setSelectionRange) try{ n.setSelectionRange(ss[0],ss[1]); }catch(_){} } }
+  },0);
+}
+document.addEventListener("change", e => { if(e.target.dataset.rerender || e.target.dataset.rc) renderKeepFocus(); });
 
 function field(label, k, val, type="text", extra=""){
   const im = type==="number" ? 'inputmode="decimal"' : "";
