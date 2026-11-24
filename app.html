@@ -195,13 +195,15 @@ const CAT = {
   tableinput:[["Extron","Cable Cubby 600","Table cable access enclosure","extron"],["Crestron","FT2-600","FlipTop table box","crestron"],["Legrand/AVTX","TBX/Evolution series","Table box","*"]],
   rack:[["Middle Atlantic","DWR wall rack / Forward credenza","Equipment rack","*"],["Middle Atlantic","UPS-OL series","Rack UPS / power","*"]]
 };
+// AEC channel capacity by DSP model ("sw" = software AEC that scales with the platform/licensing)
+const AEC_CAP = {"TesiraFORTÉ X 400":4,"TesiraFORTÉ X 800":8,"IntelliMix P300":8,"Core Nano":"sw","Core 8 Flex":"sw"};
 const ECOS = {auto:"Best fit",crestron:"Crestron",extron:"Extron",qsys:"Q-SYS",atlona:"Atlona"};
 
 const blank = () => ({
   project:{name:"",client:"",roomType:"Conference room",length:"",width:"",seats:"",notes:""},
   displays:[], sources:[], routes:{},
   routing:{mode:"auto",preview:false},
-  audio:{program:true,speech:false,mics:[],speakers:"Ceiling",speakerCount:"",dsp:"auto",assist:false},
+  audio:{program:true,speech:false,mics:[],speakers:"Ceiling",speakerCount:"",dsp:"auto",aec:"auto",assist:false},
   conf:{platform:"None",cameras:0,cameraType:"PTZ",tracking:false,usbBridge:false},
   control:{type:"Touch panel",panels:1,scheduler:false,lighting:false,shades:false,occupancy:false,notes:""},
   infra:{maxRun:"",rackLoc:"Credenza",network:"Shared corporate",power:"",notes:"",eco:"auto"},
@@ -298,7 +300,9 @@ Audio(){
   ${chk("Assistive listening required","audio.assist",a.assist)}
   <div class="grid">${sel("Speaker type","audio.speakers",["Ceiling","Wall-mount","Soundbar","Display speakers only","Line array / PA"],a.speakers)}
   ${field("Speaker qty","audio.speakerCount",a.speakerCount,"number")}
-  ${sel("DSP","audio.dsp",["auto","Not needed","Small fixed DSP","Open-architecture DSP","Built into codec/bar"],a.dsp)}</div>
+  ${sel("DSP","audio.dsp",["auto","Not needed","Small fixed DSP","Open-architecture DSP","Built into codec/bar"],a.dsp,true)}
+  ${sel("Echo cancellation (AEC)","audio.aec",["auto","Required","Not needed"],a.aec||"auto",true)}</div>
+  <div class="note">${aecSummary()}</div>
   <h3 style="font-size:1rem;margin:1rem 0 .2rem">Microphones</h3>${mics||'<div class="empty">No microphones. Add some if people in the room need to be heard (conferencing or reinforcement).</div>'}
   <div class="addrow"><button onclick="S.audio.mics.push({type:'Ceiling array',qty:1});save();render()">＋ Add microphones</button></div>
   ${a.speakerCount==="" && S.project.length && S.project.width ? `<div class="note">Rough ceiling speaker count for ${S.project.length}×${S.project.width} ft at ~9 ft ceiling: <b>${Math.max(2,Math.ceil(S.project.length*S.project.width/150))}</b></div>`:""}`;
@@ -380,12 +384,31 @@ function checks(){
   S.sources.forEach(s=>{ if(!routed().some(r=>r[0]===s.id)) n.push(`${esc(s.name)} isn't routed anywhere.`); });
   if(S.conf.platform!=="None" && !S.conf.cameras && S.conf.cameraType!=="Video bar (integrated)") n.push("Conferencing selected but no cameras.");
   if(S.audio.speech && S.audio.mics.some(m=>m.type==="Ceiling array")) n.push("Speech reinforcement with ceiling mics is prone to feedback — review gain-before-feedback.");
+  if(aecOn()){
+    const dsp=needsDSP(), dItem=items().find(i=>i.key==="dsp");
+    if(!dsp && S.conf.cameraType!=="Video bar (integrated)") n.push("AEC is required but DSP is set to Not needed — the far end will hear echo.");
+    if(dItem){ const m=pickOf(dItem)[1], cap=AEC_CAP[m], ch=aecChannels();
+      if(cap===undefined) n.push(`${esc(m)}: AEC capacity not listed — confirm it supports ${ch} AEC channel(s).`);
+      else if(cap!=="sw" && ch>cap) n.push(`${esc(m)} has ${cap} AEC channels but ${ch} are needed — step up a model or reduce mic channels.`);
+      else if(cap==="sw") n.push(`${esc(m)}: confirm Q-SYS AEC licensing covers ${ch} channel(s).`); }
+    if(!S.audio.mics.length) n.push("AEC is on but no microphones are listed.");
+  }
   if(S.audio.assist) n.push("Assistive listening: confirm ADA receiver quantity for occupancy.");
   if(S.infra.network==="Unknown") n.push("Network approach not confirmed with IT.");
   return n;
 }
+function aecOn(){ const v=S.audio.aec||"auto"; return v==="Required" || (v==="auto" && S.conf.platform!=="None"); }
+// 1 AEC channel per discrete mic; arrays counted as 1 per unit (automixed output)
+function aecChannels(){ return S.audio.mics.reduce((n,m)=>n+(+m.qty||1),0); }
+function aecSummary(){
+  const v=S.audio.aec||"auto";
+  if(!aecOn()) return v==="Not needed" ? "AEC off. Fine for presentation-only or reinforcement rooms with no far end." : "AEC off: no conferencing selected. Set to <b>Required</b> if any far-end audio (calls, streaming, remote presenters) touches this room.";
+  const ch=aecChannels(), why=v==="auto"?" (auto: conferencing is on)":"";
+  return `AEC on${why}. <b>${ch||"0"} AEC channel${ch===1?"":"s"}</b> needed: one per mic channel, counting each array as one automixed channel.${S.conf.cameraType==="Video bar (integrated)"?" The video bar's built-in AEC covers its own mics; external mics still need DSP AEC.":""}`;
+}
 function needsDSP(){
   const a=S.audio; if(a.dsp!=="auto") return a.dsp==="Not needed"?null:a.dsp;
+  if(aecOn() && a.mics.length) return "Open-architecture DSP";
   if(a.mics.length || a.speech) return S.conf.cameraType==="Video bar (integrated)"?"Built into codec/bar":"Open-architecture DSP";
   if(a.program && (+a.speakerCount>0 || a.speakers!=="Display speakers only")) return "Small fixed DSP";
   return null;
@@ -422,8 +445,9 @@ function items(){
   Object.entries(sc).forEach(([k,q])=>add("src_"+k,"Source",{pc:"Room PC",player:"Media player",iptv:"IPTV / STB",doccam:"Document camera",wireless:"Wireless presentation"}[k],k,q));
   // Audio
   const a=S.audio, dsp=needsDSP();
-  if(dsp==="Open-architecture DSP") add("dsp","Audio","DSP","dsp_open",1, S.conf.platform!=="None"?"AEC required":"");
-  else if(dsp==="Small fixed DSP") add("dsp","Audio","DSP","dsp_small",1);
+  const aecNote=aecOn()?`AEC: ${aecChannels()} ch needed`:"No AEC";
+  if(dsp==="Open-architecture DSP") add("dsp","Audio","DSP"+(aecOn()?" with AEC":""),"dsp_open",1,aecNote);
+  else if(dsp==="Small fixed DSP") add("dsp","Audio","DSP"+(aecOn()?" with AEC":""),"dsp_small",1,aecNote);
   const mmap={"Ceiling array":"mic_ceiling","Table boundary":"mic_table","Gooseneck":"mic_goose","Wireless handheld":"mic_wireless","Wireless lav":"mic_wireless","Wireless headset":"mic_wireless"};
   a.mics.forEach((m,i)=>add("mic"+i,"Audio","Mic — "+m.type,mmap[m.type],+m.qty||1));
   const spkMap={"Ceiling":"spk_ceiling","Wall-mount":"spk_wall","Line array / PA":"spk_line"};
@@ -463,6 +487,7 @@ function choices(catKey){
   const pref=list.filter(p=>p[3]===eco), rest=list.filter(p=>p[3]!==eco);
   return [...pref,...rest];
 }
+function aecCapText(model){ const c=AEC_CAP[model]; return c==="sw"?"software AEC (scales with licensing)":c?c+"-ch AEC":"no AEC listed"; }
 function pickOf(it){ const ch=choices(it.catKey); const saved=S.picks[it.key]; return ch.find(p=>p[0]+" "+p[1]===saved)||ch[0]; }
 function setPick(k,v){ S.picks[k]=v; save(); render(); }
 
@@ -470,7 +495,7 @@ function bom(){
   const rows=items().map(it=>{
     const ch=choices(it.catKey), p=pickOf(it);
     const sel=ch.length?`<select class="noprint-sel" onchange="setPick('${it.key}',this.value)">${ch.map(c=>{const v=c[0]+" "+c[1];return `<option ${p&&v===p[0]+" "+p[1]?"selected":""}>${esc(v)}</option>`}).join("")}</select>`:"";
-    return `<tr><td class="cat">${it.cat}</td><td class="itm"><b>${esc(it.role)}</b><br>${sel}<div class="q" style="margin:0;font-size:.78rem">${p?esc(p[2]):""}</div></td><td class="c qty">×${it.qty}</td><td class="nt">${esc(it.note)}</td></tr>`;
+    return `<tr><td class="cat">${it.cat}</td><td class="itm"><b>${esc(it.role)}</b><br>${sel}<div class="q" style="margin:0;font-size:.78rem">${p?esc(p[2]):""}${p&&it.key==="dsp"?" · <b>"+aecCapText(p[1])+"</b>":""}</div></td><td class="c qty">×${it.qty}</td><td class="nt">${esc(it.note)}</td></tr>`;
   }).join("");
   return `<div class="noprint" style="margin-bottom:.4rem;font-size:.85rem;color:var(--mute)">Ecosystem: <select style="width:auto" onchange="S.infra.eco=this.value;save();render()">${Object.entries(ECOS).map(([k,v])=>`<option value="${k}" ${S.infra.eco==k?"selected":""}>${v}</option>`).join("")}</select> · pick a model on any line</div>
   <div style="overflow-x:auto"><table class="bom"><tr class="hd"><th>Category</th><th>Item / model</th><th class="c">Qty</th><th>Notes</th></tr>${rows}</table></div>
@@ -512,7 +537,7 @@ function diagram(){
     g+=`<text x="${sx}" y="${ay-12}" fill="#8b98a5">AUDIO</text>`;
     const micLbl=S.audio.mics.map(m=>`${m.qty||1}× ${m.type}`).join(", ")||"Source audio";
     g+=box(sx,ay,bw,bh,"Mics",micLbl,"#1a2129","#2c3742");
-    g+=box(cx,ay,180,bh,dspName,S.conf.platform!=="None"?"AEC / mix":"mix","#13202b","#7bd88f");
+    g+=box(cx,ay,180,bh,dspName,aecOn()?`AEC ${aecChannels()} ch · mix`:"mix","#13202b","#7bd88f");
     g+=box(dx,ay,bw,bh,"Speakers",`${S.audio.speakerCount||"?"}× ${S.audio.speakers}${ap?" · amp: "+pickOf(ap)[1]:""}`,"#1a2129","#2c3742");
     g+=`<line x1="${sx+bw}" y1="${ay+bh/2}" x2="${cx}" y2="${ay+bh/2}" stroke="#7bd88f" stroke-width="1.5"/><line x1="${cx+180}" y1="${ay+bh/2}" x2="${dx}" y2="${ay+bh/2}" stroke="#7bd88f" stroke-width="1.5"/>`;
     g+=`<line x1="${cx+90}" y1="${coreY+coreH}" x2="${cx+90}" y2="${ay}" stroke="#7bd88f" stroke-dasharray="4 3"/><text x="${cx+96}" y="${(coreY+coreH+ay)/2}" fill="#7bd88f" font-size="10">program audio</text>`;
