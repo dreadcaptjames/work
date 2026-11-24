@@ -540,6 +540,7 @@ function items(){
   if(!avoip && L.some(i=>["core","dsp","proc","tp","kp","sched","src_wireless","src_pc","src_player","src_iptv"].includes(i.key) || i.key.startsWith("cam_")))
     add("netsw","Network","Network switch (control / Dante / IP cameras)","avoip_switch",1,"PoE+, AV VLAN; IGMP if Dante/AES67");
   add("rack","Infrastructure",S.infra.rackLoc+" rack / power","rack",1,S.infra.network);
+  const nsw=L.find(i=>i.key==="netsw"); if(nsw && LAST_PORTS.length) nsw.note+=` · Port schedule: `+LAST_PORTS.map(p=>`P${p.p} ${p.name}`).join("; ");
   (S.extras||[]).forEach(x=>L.push({key:"x_"+x.id,cat:x.cat||"Other",role:x.role||"Custom item",catKey:"",qty:+x.qty||1,note:x.note||"",extra:x}));
   return L;
 }
@@ -607,13 +608,14 @@ function bom(){
   <div class="noprint" style="margin-top:.5rem"><button onclick="exportCSV()">Download BOM (CSV)</button></div>
   <p class="q" style="font-size:.78rem">Models are starting points — confirm current part numbers, compatibility and lead times with your distributor.</p>`;
 }
-function exportCSV(){
+function exportCSV(){ diagram(); // refresh port numbering
   const q=s=>`"${String(s??"").replace(/"/g,'""')}"`;
   const lines=[["Category","Role","Brand","Model","Description","Qty","Notes"].map(q).join(",")];
   items().forEach(it=>{const p=pickOf(it)||["","",""]; lines.push([it.cat,it.role,p[0],p[1],p[2],it.qty,it.note].map(q).join(","));});
   dl(new Blob([lines.join("\n")],{type:"text/csv"}),(S.project.name||"av-design")+"-bom.csv");
 }
 
+let LAST_PORTS=[];
 let LAST_LAYOUT=null, LCOLS={cx:[],CWD:[]};
 // ---------- Location-zone layout (inspired by as-built field-device sheets) ----------
 // Columns: 0 source/field-in · 1 at-source Tx/enc · 2 rack-in · 3 rack core blocks · 4 rack-out · 5 at-display Rx/dec · 6 field devices
@@ -828,10 +830,22 @@ function diagram(){
   }
   // switch naming + port count (AVoIP: video + control VLAN are one physical switch)
   const swEdges=E.filter(e=>(e.b===netId&&e.k==="net") || (avoip&&e.k==="video"&&(e.a===coreId||e.b===coreId)&&e.l==="1 GbE"));
-  const ports=swEdges.length, poe=swEdges.filter(e=>/PoE/.test(e.l)||/^(enc|dec)/.test(e.a===coreId?e.b:e.a)).length;
+
   if(avoip && coreId) N[coreId].title="NSW-1 · AV network switch";
   if(N.net) N.net.title=(avoip?"NSW-1 · control/Dante VLAN":"NSW-1 · network switch");
   const swNode=avoip?N[coreId]:N.net;
+  // number the switch ports in a stable order: AVoIP endpoints first, then everything on the control/Dante side
+  const devName=id=>{ let m; if((m=id.match(/^enc(\d+)$/))) return "Encoder · "+(S.sources[+m[1]]||{}).name; if((m=id.match(/^dec(\d+)$/))) return "Decoder · "+(S.displays[+m[1]]||{}).name;
+    const n=N[id]; return n?n.title.replace(/ ×\d+/,"").replace(/^DSP · .*/,"DSP"):id; };
+  const sw2=[...swEdges.filter(e=>e.k==="video"), ...swEdges.filter(e=>e.k!=="video")];
+  const unitQty=id=>{ let m; if((m=id.match(/^mic(\d+)$/))) return Math.max(1,+(S.audio.mics[+m[1]]||{}).qty||1); if(id==="tp"||id==="kp") return Math.max(1,+S.control.panels||1); return 1; };
+  LAST_PORTS=[]; let next=1;
+  sw2.forEach(e=>{ const dev=(avoip&&e.a===coreId)?e.b:e.a, q=unitQty(dev), first=next; next+=q;
+    e.port=q>1?`${first}–${first+q-1}`:`${first}`;
+    if(e.k==="video") e.l=`${e.l} · P${e.port}`;
+    const base=devName(dev);
+    for(let u=0;u<q;u++) LAST_PORTS.push({p:first+u,dev,name:q>1?`${base} ${u+1}`:base,type:e.k==="video"?"1 GbE":(e.l||"LAN")}); });
+  const ports=LAST_PORTS.length, poe=LAST_PORTS.filter(p=>/PoE/.test(p.type)||/^(enc|dec)/.test(p.dev)).length;
   if(swNode && ports) swNode.sub=`${ports} ports${poe?` (${poe} PoE)`:""} · `+swNode.sub.replace(/^same switch: /,"");
 
   // ---- layout + draw ----
@@ -854,7 +868,7 @@ function diagram(){
   const R=[];
   E.forEach(e=>{
     const A=N[e.a], B=N[e.b]; if(!A||!B) return;
-    if(netTags && e.k==="net" && e.b==="net"){ (tags[e.a]=tags[e.a]||[]).push((e.l||"LAN")+" → NSW-1"); return; }
+    if(netTags && e.k==="net" && e.b==="net"){ (tags[e.a]=tags[e.a]||[]).push((e.l||"LAN")+" → NSW-1"+(e.port?" P"+e.port:"")); return; }
     let mode="h";
     if(A.col===B.col && A.xo===B.xo){ const lo=Math.min(A.y,B.y), hi=Math.max(A.y,B.y);
       mode=Object.values(N).some(n=>n.col===A.col && n!==A && n!==B && n.y>lo && n.y<hi)?"br":"v"; }
@@ -958,7 +972,8 @@ function diagram(){
       p=`M${x1} ${r.y1} H${r.lx} V${r.y2} H${x2}`; lx=r.lx; ly=(r.y1+r.y2)/2; r.pts=[[x1,r.y1],[r.lx,r.y1],[r.lx,r.y2],[x2,r.y2]];
     } else { const dn=r.A.y<r.B.y, y1=dn?r.A.y+r.A.h:r.A.y, y2=dn?r.B.y:r.B.y+r.B.h; p=`M${r.lx} ${y1} V${y2}`; lx=r.lx; ly=(y1+y2)/2; r.pts=[[r.lx,y1],[r.lx,y2]]; }
     g+=`<path d="${p}" data-e="${e.a}>${e.b}:${r.mode}" fill="none" stroke="${c}" stroke-width="${w}" ${da?`stroke-dasharray="${da}"`:""} opacity=".9"/>`;
-    if(e.l) LBL.push({t:e.l,c,segs:segOf(r)});
+    const lt=e.k==="net"&&e.port?`P${e.port} · ${e.l||"LAN"}`:e.l;
+    if(lt) LBL.push({t:lt,c,segs:segOf(r)});
   });
   Object.values(N).forEach(n=>{
     if(n.kind!=="spk"){ g+=box(n.x,n.y,n.w,n.h,n.title,n.sub,n.col===3?D.accbg:D.panel,KS[n.kind]||D.line,n.col===3); return; }
