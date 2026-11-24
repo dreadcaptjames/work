@@ -614,26 +614,42 @@ function zoneLayout(N,E,o){
   const Z={}; const z=(key,label,side)=>Z[key]=Z[key]||{key,label,side,ids:[]};
   const put=(id,col,zk,label,side)=>{ if(!N[id]) return; N[id].col=col; N[id].xo=undefined; N[id].zone=zk; z(zk,label,side).ids.push(id); };
   const rackLabel=`Equipment located in ${S.infra.rackLoc} rack`;
+  const L0=(id,col,key,label)=>put(id,col,"L:"+key,label,"L");
+  // wireless mics: the mic is a source (left); its receiver lives in the rack
+  Object.keys(N).forEach(id=>{ const m=id.match(/^mic(\d+)$/); if(!m) return; const mic=S.audio.mics[+m[1]]||{};
+    if(!/Wireless/.test(mic.type||"")) return;
+    const rid="wrx"+m[1]; N[rid]={...N[id],id:rid,title:`Wireless receiver ×${mic.qty||1}`};
+    N[id].title=`Wireless mic ×${mic.qty||1} · ${(mic.type||"").replace("Wireless ","")}`;
+    E.forEach(e=>{ if(e.a===id&&e.k==="audio"){ e.a=rid; e.l="analog"; } if(e.a===id&&e.k==="net") e.a=rid; });
+    E.push({a:id,b:rid,k:"audio",l:"RF"}); });
   Object.keys(N).forEach(id=>{
     let m;
-    if((m=id.match(/^s(\d+)$/))){ const l=leftLoc(src(+m[1]).loc); l?put(id,0,"L:"+l,"Equipment located at "+l,"L"):put(id,2,"rack",rackLabel,"C"); }
-    else if((m=id.match(/^(enc|tx)(\d+)$/))){ const l=leftLoc(src(+m[2]).loc); l?put(id,1,"L:"+l,"Equipment located at "+l,"L"):put(id,2,"rack",rackLabel,"C"); }
-    else if(/^srx\d+$/.test(id)||id==="usb") put(id,2,"rack",rackLabel,"C");
+    // ---- column 0: everything that originates a signal ----
+    if((m=id.match(/^s(\d+)$/))){ const l=src(+m[1]).loc; l==="Equipment rack"?L0(id,0,"rack-src","Sources located in rack"):L0(id,0,l,"Sources · "+l); }
+    else if((m=id.match(/^(enc|tx)(\d+)$/))){ const l=src(+m[2]).loc; l==="Equipment rack"?L0(id,1,"rack-src","Sources located in rack"):L0(id,1,l,"Sources · "+l); }
+    else if((m=id.match(/^mic(\d+)$/))){ const t=(S.audio.mics[+m[1]]||{}).type||"";
+      if(/Ceiling/.test(t)) L0(id,0,"Ceiling","Ceiling");
+      else if(/Wireless/.test(t)) L0(id,0,"Wireless","Wireless mics (handheld / body-pack)");
+      else { const l=/Gooseneck/.test(t)?"Lectern":"Table"; L0(id,0,l,"Sources · "+l); } }
+    else if((m=id.match(/^cam(\d+)$/))){ const mt=(S.cameras[+m[1]]||{}).mount||"Wall";
+      if(mt==="Ceiling") L0(id,0,"Ceiling","Ceiling"); else if(mt==="Tabletop") L0(id,0,"Table","Sources · Table"); else if(mt==="Lectern") L0(id,0,"Lectern","Sources · Lectern"); else L0(id,0,"cam:"+mt,"Cameras · "+mt.toLowerCase()); }
+    else if(id==="tp"||id==="kp") L0(id,0,userLoc,"Sources · "+userLoc);
+    else if(id==="occ") L0(id,0,"Ceiling","Ceiling");
+    else if(id==="sched") L0(id,0,"door","Door · corridor");
+    // ---- rack ----
+    else if(/^srx\d+$/.test(id)||/^wrx\d+$/.test(id)||id==="usb") put(id,2,"rack",rackLabel,"C");
     else if(["core","dspx","proc","net"].includes(id)) put(id,3,"rack",rackLabel,"C");
-    else if(/^htx\d+$/.test(id)||["amp","ald"].includes(id)||/^x_/.test(id)) put(id,4,"rack",rackLabel,"C");
+    else if(/^htx\d+$/.test(id)||id==="amp"||/^x_/.test(id)) put(id,4,"rack",rackLabel,"C");
+    // ---- last column: destinations ----
     else if(/^(rx|dec)\d+$/.test(id)) put(id,5,"R:disp","Displays · front of room","R");
     else if(/^d\d+$/.test(id)) put(id,6,"R:disp","Displays · front of room","R");
-    else if((m=id.match(/^mic(\d+)$/))){ const t=(S.audio.mics[+m[1]]||{}).type||"";
-      if(/Ceiling/.test(t)) put(id,6,"R:ceil","Ceiling","R");
-      else if(/Wireless/.test(t)){ N[id].title=`Wireless mic rx ×${(S.audio.mics[+m[1]]||{}).qty||1}`; put(id,2,"rack",rackLabel,"C"); }
-      else { const l=/Gooseneck/.test(t)?"Lectern":"Table"; put(id,0,"L:"+l,"Equipment located at "+l,"L"); } }
-    else if(id==="spk"){ const t=S.audio.speakers; t==="Ceiling"?put(id,6,"R:ceil","Ceiling","R"):put(id,6,"R:room","Room · walls","R"); }
-    else if(id==="occ") put(id,6,"R:ceil","Ceiling","R");
-    else if((m=id.match(/^cam(\d+)$/))){ const mt=(S.cameras[+m[1]]||{}).mount||"Wall"; mt==="Ceiling"?put(id,6,"R:ceil","Ceiling","R"):["Tabletop","Lectern"].includes(mt)?put(id,0,"L:"+(mt==="Tabletop"?"Table":"Lectern"),"Equipment located at "+(mt==="Tabletop"?"Table":"Lectern"),"L"):put(id,6,"R:cam:"+mt,"Cameras · "+mt.toLowerCase(),"R"); }
-    else if(id==="tp"||id==="kp") put(id,0,"L:"+userLoc,"Equipment located at "+userLoc,"L");
-    else if(id==="sched") put(id,6,"R:door","Door · corridor","R");
+    else if(id==="spk") put(id,6,"R:spk",S.audio.speakers==="Ceiling"?"Speakers · ceiling":"Speakers · room","R");
+    else if(id==="ald") put(id,6,"R:ald","Assistive listening","R");
     else put(id,4,"rack",rackLabel,"C");
   });
+  // left zones: video sources first, then mics, cameras, control
+  const zOrder=k=>k.startsWith("L:")?(k==="L:Ceiling"?2:k==="L:Wireless"?2:k.startsWith("L:cam")?3:k==="L:door"?4:k==="L:rack-src"?1:0):0;
+  Object.keys(Z).sort((a,b)=>zOrder(a)-zOrder(b)).forEach(k=>{ const v=Z[k]; delete Z[k]; Z[k]=v; });
   const nh=n=>n.h||bh, step=n=>nh(n)+(gap-bh);
   const ord=(a,b)=>Object.keys(N).indexOf(a)-Object.keys(N).indexOf(b);
   // stack a side's zones top→bottom; col 0/6 drive rows, partners (col 1/5) share the row
@@ -665,6 +681,7 @@ function zoneLayout(N,E,o){
     top=Math.max(top-6,floor); const h=Math.max(100,bot-top+6); N[k].y=top; N[k].h=h; floor=top+h+24; });
   // columns → x
   const CWD=[200,125,165,120,165,140,200], G=[46,40,44,44,40,46];
+  [1,2,4,5].forEach(c=>{ if(!Object.values(N).some(n=>n.col===c)){ CWD[c]=0; G[c<3?c:c-1]=0; } }); // collapse empty columns
   const base=40+CWD.reduce((a,b)=>a+b)+G.reduce((a,b)=>a+b)+32;
   const ids=Object.keys(N); let maxY=Math.max(yL,yR,...ids.map(k=>N[k].y+nh(N[k])+30));
   const H=maxY+10, W=Math.max(base,Math.ceil(H*1.6)), extra=(W-base)/G.length;
