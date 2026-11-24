@@ -214,6 +214,10 @@ const NETPORT = {
   "MXA920":"PoE · Dante","MXA310":"PoE · Dante","TeamConnect Ceiling 2":"PoE · Dante","Parlé TCM-X":"PoE · network audio","NM-T1":"PoE · Q-LAN","ULX-D":"Dante",
   "TesiraFORTÉ X 400":"Dante · LAN","TesiraFORTÉ X 800":"Dante · LAN","IntelliMix P300":"PoE · Dante","Core Nano":"Q-LAN","Core 8 Flex":"Q-LAN"
 };
+// Switchers/matrices whose outputs are HDBaseT (they are the transmitter). Others need a separate Tx.
+const HDBT_OUT = new Set(["HD-PS622","HD-PS402","IN1608 xi","AT-OME-PS62","AT-UHD-PRO3-88M"]);
+// Display families with a built-in HDBaseT input (they are the receiver).
+const HDBT_IN = new Set(["Pro L series laser","PT-RZ series"]);
 const NET_SRC = {"Room PC":"LAN","Wireless presentation":"LAN","Media player":"LAN","Digital signage player":"LAN","Cable / IPTV":"LAN · IPTV"};
 const ECOS = {auto:"Best fit",crestron:"Crestron",extron:"Extron",qsys:"Q-SYS",atlona:"Atlona"};
 
@@ -475,9 +479,9 @@ function items(){
   } else {
     if(core.startsWith("Presentation")) add("core","Video","Presentation switcher","pres_sw",1,`${S.sources.length} in / ${S.displays.length} out`);
     if(core.startsWith("Matrix")) add("core","Video","Matrix switcher","matrix",1,core.replace("Matrix switcher ",""));
-    const longD=S.displays.filter(d=>transport(d.dist)==="HDBaseT").length;
-    const swHasHDBT=core.startsWith("Presentation");
-    if(longD){ if(!swHasHDBT) add("hdtx","Video","HDBaseT transmitter","hdbt_tx",longD,"display side"); add("hdrx","Video","HDBaseT receiver","hdbt_rx",longD,"at displays over 25 ft"); }
+    const hb=hdbtPlan(core,L);
+    if(hb.tx) add("hdtx","Video","HDBaseT transmitter","hdbt_tx",hb.tx,hb.txNote);
+    if(hb.rx) add("hdrx","Video","HDBaseT receiver","hdbt_rx",hb.rx,"at displays; HDMI to display");
     const remote=S.sources.filter(s=>["Table","Lectern","Wall plate"].includes(s.loc)).length;
     if(remote && S.infra.rackLoc!=="Credenza") add("srctx","Video","HDBaseT transmitter (input side)","hdbt_tx",remote,"table/wall inputs back to rack");
   }
@@ -517,6 +521,17 @@ function items(){
   add("rack","Infrastructure",S.infra.rackLoc+" rack / power","rack",1,S.infra.network);
   (S.extras||[]).forEach(x=>L.push({key:"x_"+x.id,cat:x.cat||"Other",role:x.role||"Custom item",catKey:"",qty:+x.qty||1,note:x.note||"",extra:x}));
   return L;
+}
+// Which long-run displays need a separate HDBaseT Tx / Rx, based on the picked switcher and display models
+function hdbtPlan(core,L){
+  const long=S.displays.filter(d=>transport(d.dist)==="HDBaseT");
+  const coreIt=L.find(i=>i.key==="core"), coreModel=coreIt?pickOf(coreIt)[1]:"";
+  const swTx=!!coreIt && S.picks.core!==CUSTOM && HDBT_OUT.has(coreModel);
+  const dmap={"Flat panel":"panel","Confidence monitor":"panel","Projector + screen":"projector","LED video wall":"led","Interactive display":"interactive"};
+  const builtInRx=d=>{ const k="disp_"+dmap[d.type], it=L.find(i=>i.key===k); return !!it && S.picks[k]!==CUSTOM && HDBT_IN.has(pickOf(it)[1]); };
+  const per=long.map(d=>({d, tx:!swTx, rx:!builtInRx(d)}));
+  return {per, tx:per.filter(p=>p.tx).length, rx:per.filter(p=>p.rx).length, swTx,
+    txNote: coreIt ? `${coreModel||"switcher"} has HDMI outputs; Tx at rack` : "Tx at source end of long run"};
 }
 function ampSize(n){
   if(!n) return {qty:1,note:"size once speaker count is known"};
@@ -575,7 +590,8 @@ function diagram(){
   const model=k=>{ const i=has(k); if(!i) return ""; const p=pickOf(i); return p?p[0]+" "+p[1]:""; };
   const core=recommendCore().name, avoip=core.startsWith("AV over IP"), direct=core.startsWith("Direct");
   const bw=200, bh=42, gap=58, CW=120, N={}, E=[], secs=[];
-  const node=(id,col,y,title,sub,kind,h)=>{ N[id]={id,col,y,title,sub,kind,w:col===2?CW:bw,h:h||bh}; return id; };
+  const node=(id,col,y,title,sub,kind,h,w,xo)=>{ N[id]={id,col,y,title,sub,kind,w:w||(col===2?CW:bw),h:h||bh,xo}; return id; };
+  const HB=hdbtPlan(core,IT), wideTx=!avoip && HB.per.some(p=>p.tx&&p.rx);
   const edge=(a,b,k,l)=>{ if(a&&b) E.push({a,b,k,l}); };
   const smap={"Room PC":"pc","Media player":"player","Digital signage player":"player","Cable / IPTV":"iptv","Document camera":"doccam","Wireless presentation":"wireless"};
   const dmap={"Flat panel":"panel","Confidence monitor":"panel","Projector + screen":"projector","LED video wall":"led","Interactive display":"interactive"};
@@ -606,9 +622,15 @@ function diagram(){
     const id=node("d"+j,4,rowY(j),d.name+(d.size?` · ${d.size}"`:""),m||d.type,"dsp");
     const r=routed().some(x=>x[1]===d.id); let first=id;
     if(avoip && r){ first=node("dec"+j,3,rowY(j),"Decoder",model("dec"),"ep"); edge(first,id,"video","HDMI"); }
-    else if(!avoip && transport(d.dist)==="HDBaseT" && has("hdrx")){ first=node("rx"+j,3,rowY(j),"HDBaseT receiver",model("hdrx"),"ep"); edge(first,id,"video","HDMI"); }
-    if(coreId && r) edge(coreId,first,"video",avoip?"1 GbE":transport(d.dist)==="HDBaseT"?"HDBaseT":"HDMI");
-    else if(direct) routed().filter(x=>x[1]===d.id).forEach(x=>edge(srcEnd[x[0]],first,"video",transport(d.dist)));
+    else if(!avoip && transport(d.dist)==="HDBaseT"){
+      const p=HB.per.find(q=>q.d===d)||{tx:false,rx:false};
+      if(p.rx){ first=node("rx"+j,3,rowY(j),"HDBaseT Rx",model("hdrx"),"ep",0,125,118); edge(first,id,"video","HDMI"); }
+      if(p.tx){ const tx=node("htx"+j,3,rowY(j),"HDBaseT Tx",model("hdtx"),"ep",0,125,-62); edge(tx,first,"video",p.rx?"HDBaseT":"HDBaseT (built-in rx)"); first=tx; }
+      else if(!p.rx) first={hdbtIn:id};
+    }
+    if(first && first.hdbtIn){ if(coreId && r) edge(coreId,first.hdbtIn,"video","HDBaseT (built-in rx)"); }
+    else if(coreId && r) edge(coreId,first,"video",avoip?"1 GbE":transport(d.dist)!=="HDBaseT"?"HDMI":N["htx"+j]?"HDMI":"HDBaseT");
+    else if(direct) routed().filter(x=>x[1]===d.id).forEach(x=>edge(srcEnd[x[0]],first.hdbtIn||first,"video",N["htx"+j]?"HDMI":transport(d.dist)));
   });
   y=Math.max(rowY(rows-1)+bh, coreId?N[coreId].y+N[coreId].h:0)+70;
 
@@ -688,8 +710,8 @@ function diagram(){
   if(swNode && ports) swNode.sub=`${ports} ports${poe?` (${poe} PoE)`:""} · `+swNode.sub.replace(/^same switch: /,"");
 
   // ---- layout + draw ----
-  const H=y-30, W=Math.max(1180, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
-  Object.values(N).forEach(n=>n.x=colX(n.col)+(bw-n.w)/2);
+  const H=y-30, W=Math.max(wideTx?1320:1180, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
+  Object.values(N).forEach(n=>n.x=colX(n.col)+(n.xo!==undefined?n.xo:(bw-n.w)/2));
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), cy=n=>n.y+n.h/2;
   const ST={video:[D.acc,"",1.8],audio:[D.ok,"",1.8],control:[D.mute,"5 4",1.4],net:[D.acc2,"2 4",1.4],usb:[D.text,"7 3",1.2]};
   const KS={src:D.line,dsp:D.line,ep:D.acc,core:D.acc,aud:D.ok,conf:D.acc2,ctl:D.mute,net:D.acc2};
@@ -703,7 +725,7 @@ function diagram(){
     const A1=N[e.a], B1=N[e.b]; if(!A1||!B1) return;
     if(netTags && e.k==="net" && e.b==="net"){ (tags[e.a]=tags[e.a]||[]).push((e.l||"LAN")+" → NSW-1"); return; }
     const [c,da,w]=ST[e.k]; let x1,y1,x2,y2,p;
-    if(A1.col===B1.col){
+    if(A1.col===B1.col && A1.xo===B1.xo){
       const lo=Math.min(A1.y,B1.y), hi=Math.max(A1.y,B1.y);
       const blocked=Object.values(N).some(n=>n.col===A1.col && n!==A1 && n!==B1 && n.y>lo && n.y<hi);
       if(blocked){ // route around boxes stacked in the same column (e.g. switcher → processor past the DSP)
@@ -715,7 +737,7 @@ function diagram(){
         y1=dn?A1.y+A1.h:A1.y; y2=dn?B1.y:B1.y+B1.h; p=`M${x1} ${y1} L${x2} ${y2}`;
       }
     } else {
-      const fwd=A1.col<B1.col; x1=fwd?A1.x+A1.w:A1.x; x2=fwd?B1.x:B1.x+B1.w;
+      const fwd=A1.col<B1.col || (A1.col===B1.col && A1.x<B1.x); x1=fwd?A1.x+A1.w:A1.x; x2=fwd?B1.x:B1.x+B1.w;
       // tall blocks: meet the line at the small device's height so links run straight
       const tA=A1.h>bh, tB=B1.h>bh;
       y1=tA&&!tB?clamp(cy(B1),A1.y+12,A1.y+A1.h-12):cy(A1); y2=tB&&!tA?clamp(cy(A1),B1.y+12,B1.y+B1.h-12):cy(B1);
