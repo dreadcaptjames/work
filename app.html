@@ -957,6 +957,21 @@ function fits(it,p){
   if(it.key==="amp" && AMPW[m]) return AMPW[m]>=ampNeedW();
   return true;
 }
+// How much spare capacity a fitting entry carries (0 = exact). null when unknown.
+function slack(it,p){
+  const m=p[1];
+  if(it.key==="core" && IO[m]){ const [i,o]=IO[m]; const sp=i-S.sources.length; return (sp<1?2:sp-1)+(o-S.displays.length)*1.5; } // one spare input is ideal
+  if(it.key==="dsp" && aecOn() && typeof AEC_CAP[m]==="number") return AEC_CAP[m]-aecChannels();
+  if(it.key==="amp" && AMPW[m]){ const n=ampNeedW()||1; return (AMPW[m]-n)/Math.max(n,50)*4; }
+  return null;
+}
+// Oversized = well past what's needed, beyond a sensible spare margin
+function oversized(it,p){ const x=slack(it,p); if(x==null||fits(it,p)!==true) return false;
+  if(it.key==="core"){ const [i,o]=IO[p[1]]; return i>Math.max(S.sources.length*2,S.sources.length+3) || o>Math.max(S.displays.length*2,S.displays.length+2); }
+  if(it.key==="dsp") return x>Math.max(aecChannels(),4);
+  if(it.key==="amp"){ const n=ampNeedW(); return n>0 && AMPW[p[1]]>Math.max(n*3,n+300); }
+  return false; }
+function fitTag(it,p){ const f=fits(it,p); return f===false?" — too small":oversized(it,p)?" — oversized":""; }
 function aecCapText(model){ const c=AEC_CAP[model]; return c==="sw"?"software AEC (scales with licensing)":c?c+"-ch AEC":"no AEC listed"; }
 const CUSTOM="__custom__";
 function pickOf(it){
@@ -964,7 +979,12 @@ function pickOf(it){
   const saved=S.picks[it.key];
   if(saved===CUSTOM){ const c=(S.custom||{})[it.key]||{}; return [c.brand||"Custom",c.model||"",c.desc||"","*"]; }
   const ch=choices(it.catKey), hit=ch.find(p=>p[0]+" "+p[1]===saved); if(hit) return hit;
-  return ch.find(p=>fits(it,p)===true)||ch.find(p=>fits(it,p)===null)||ch[0];
+  const eco=S.infra.eco||"auto", ecoPen=p=>eco!=="auto"&&p[3]!==eco&&p[3]!=="*"?2:eco!=="auto"&&p[3]==="*"?1:0;
+  const ok=ch.filter(p=>fits(it,p)===true);
+  if(ok.some(p=>slack(it,p)!=null)){ // capacity is known: smallest unit that does the job, preferred brand first
+    const sized=ok.filter(p=>slack(it,p)!=null);
+    return sized.slice().sort((a,b)=>ecoPen(a)-ecoPen(b)||slack(it,a)-slack(it,b))[0]; }
+  return ok[0]||ch.find(p=>fits(it,p)===null)||ch[0];
 }
 function setPick(k,v){ S.picks[k]=v; if(v===CUSTOM){ S.custom=S.custom||{}; S.custom[k]=S.custom[k]||{brand:"",model:"",desc:""}; } save(); render(); }
 function addExtra(){ S.extras=S.extras||[]; S.extras.push({id:uid(),cat:"Other",role:"",brand:"",model:"",desc:"",qty:1,note:""}); save(); render();
@@ -980,7 +1000,7 @@ function bom(){
       <td class="c qty"><input type="number" inputmode="decimal" min="1" data-k="extras.${i}.qty" data-rc="1" value="${esc(x.qty)}" style="width:4.5rem;text-align:center"></td>
       <td class="nt">${f("note","Notes")}<button class="sm noprint" onclick="delExtra('${x.id}')" style="margin-top:.3rem">Remove</button></td></tr>`; }
     const ch=choices(it.catKey), p=pickOf(it), isC=S.picks[it.key]===CUSTOM;
-    const sel=ch.length?`<select class="noprint-sel" onchange="setPick('${it.key}',this.value)">${ch.map(c=>{const v=c[0]+" "+c[1];return `<option ${!isC&&p&&v===p[0]+" "+p[1]?"selected":""}>${esc(v)}</option>`}).join("")}<option value="${CUSTOM}" ${isC?"selected":""}>Custom…</option></select>`:"";
+    const sel=ch.length?`<select class="noprint-sel" onchange="setPick('${it.key}',this.value)">${ch.map(c=>{const v=c[0]+" "+c[1];return `<option value="${esc(v)}" ${!isC&&p&&v===p[0]+" "+p[1]?"selected":""}>${esc(v+fitTag(it,c))}</option>`}).join("")}<option value="${CUSTOM}" ${isC?"selected":""}>Custom…</option></select>`:"";
     const cust=isC?`<div class="cust"><input placeholder="Brand" data-k="custom.${it.key}.brand" data-rc="1" value="${esc(S.custom[it.key].brand)}"><input placeholder="Model" data-k="custom.${it.key}.model" data-rc="1" value="${esc(S.custom[it.key].model)}"></div><input placeholder="Description (optional)" data-k="custom.${it.key}.desc" data-rc="1" value="${esc(S.custom[it.key].desc)}">`:"";
     return `<tr><td class="cat">${it.cat}</td><td class="itm"><b>${esc(it.role)}</b><br>${sel}${cust}<div class="q" style="margin:0;font-size:.78rem">${p&&!isC?esc(p[2]):""}${p&&it.key==="dsp"?(isC?"":" · ")+"<b>"+(isC?"AEC capacity: confirm on spec sheet":aecCapText(p[1]))+"</b>":""}</div></td><td class="c qty">×${it.qty}</td><td class="nt">${esc(it.note)}</td></tr>`;
   }).join("");
