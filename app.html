@@ -389,7 +389,7 @@ Sketch(){
   <div class="diagram">${diagram()}</div><div class="hint noprint">Swipe the diagram sideways to see all of it →</div>
   <h3 style="font-size:1rem">Equipment sketch</h3>${bom()}
   <h3 style="font-size:1rem">Open items</h3>${(checks().map(n=>`<div class="note warn">${n}</div>`).join(""))||'<div class="note">No open flags.</div>'}
-  <div class="noprint" style="margin-top:1rem"><button class="pri" onclick="savePDF(this)">Save PDF</button> <button onclick="exportDrawio()">Download .drawio</button> <button onclick="downloadSVG()">Download SVG</button></div>`;
+  <div class="noprint" style="margin-top:1rem"><button class="pri" onclick="savePDF(this)">Save PDF</button> <button onclick="savePNG(this)">Save PNG</button> <button onclick="exportDrawio()">Download .drawio</button> <button onclick="downloadSVG()">Download SVG</button></div>`;
 }};
 
 // ---------- Logic ----------
@@ -896,7 +896,22 @@ async function shareOrDownload(blob,name){
   try{ const f=new File([blob],name,{type:blob.type}); if(navigator.canShare && navigator.canShare({files:[f]}) && matchMedia("(display-mode: standalone)").matches){ await navigator.share({files:[f],title:name}); return; } }catch(e){ if(e.name==="AbortError") return; }
   dl(blob,name);
 }
-function downloadSVG(){ shareOrDownload(new Blob([diagram()],{type:"image/svg+xml"}),fileBase()+".svg"); }
+// Diagram with fixed pixel size (Safari can't rasterize width="100%" SVGs) and optional transparent background
+function exportSVG(o){
+  const prev=THEME_KEY; if(o&&o.print) THEME_KEY="daylight"; // dark-on-light for paper and documents
+  let svg; try{ svg=diagram(); } finally { THEME_KEY=prev; } const L=LAST_LAYOUT, W=Math.round(L.W), H=Math.round(L.H);
+  svg=svg.replace(/width="100%" style="[^"]*"/, `width="${W}" height="${H}" style="font-family:-apple-system,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:12px"`);
+  if(o&&o.transparent){ svg=svg.replace(/<rect width="[\d.]+" height="[\d.]+" fill="[^"]+"\/>/,""); svg=svg.replace(/paint-order="stroke" stroke="[^"]+" stroke-width="3"/g,""); }
+  return {svg,W,H};
+}
+const svgURL=svg=>"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);
+function downloadSVG(){ shareOrDownload(new Blob([exportSVG({}).svg],{type:"image/svg+xml"}),fileBase()+".svg"); }
+async function buildPNGBlob(){
+  const {svg,W,H}=exportSVG({transparent:true,print:true}), img=await loadImg(svgURL(svg));
+  const sc=Math.min(2, 8000/W), c=document.createElement("canvas"); c.width=Math.round(W*sc); c.height=Math.round(H*sc);
+  c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+  return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("PNG encode failed")),"image/png"));
+}
 
 // ---------- draw.io export (editable: shapes + attached connectors, print-friendly colors) ----------
 function exportDrawio(){
@@ -978,9 +993,9 @@ async function buildPDFBlob(){
   };
   // Page 1: signal flow (landscape)
   let x=newPage(); let y=head(x,"SIGNAL FLOW");
-  const img=await loadImg("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(diagram()));
-  const bw=PW-2*PM, bh=PH-y-PM-40, sc=Math.min(bw/img.width, bh/img.height);
-  const iw=img.width*sc, ih=img.height*sc;
+  const ex=exportSVG({print:true}), img=await loadImg(svgURL(ex.svg));
+  const bw=PW-2*PM, bh=PH-y-PM-40, sc=Math.min(bw/ex.W, bh/ex.H);
+  const iw=ex.W*sc, ih=ex.H*sc;
   x.drawImage(img,PM+(bw-iw)/2,y,iw,ih);
   // Equipment list
   x=newPage(); y=head(x,"EQUIPMENT LIST");
@@ -1032,26 +1047,27 @@ async function buildPDFBlob(){
   push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
   return new Blob(parts,{type:"application/pdf"});
 }
-async function deliverPDF(blob){
-  const name=(S.project.name||"av-design").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-")+".pdf";
-  const file=new File([blob],name,{type:"application/pdf"});
+async function deliverPDF(blob,ext="pdf",type="application/pdf"){
+  const name=fileBase()+"."+ext;
+  const file=new File([blob],name,{type});
   if(navigator.canShare && navigator.canShare({files:[file]})){
     try{ await navigator.share({files:[file],title:name}); return true; }
     catch(e){ if(e.name==="AbortError") return true; if(e.name==="NotAllowedError") return file; }
   }
   dl(blob,name); return true;
 }
-async function savePDF(btn){
+async function savePNG(btn){ return savePDF(btn,"png"); }
+async function savePDF(btn,kind="pdf"){
   const label=btn?btn.textContent:"";
-  if(btn){ btn.disabled=true; btn.textContent="Building PDF…"; }
+  if(btn){ btn.disabled=true; btn.textContent=kind==="png"?"Building PNG…":"Building PDF…"; }
   try{
-    const r=await deliverPDF(await buildPDFBlob());
+    const r=kind==="png"?await deliverPDF(await buildPNGBlob(),"png","image/png"):await deliverPDF(await buildPDFBlob());
     if(r instanceof File && btn){ // share needs a fresh tap after the async build
-      btn.disabled=false; btn.textContent="PDF ready — tap to share";
-      btn.onclick=async()=>{ try{ await navigator.share({files:[r],title:r.name}); }catch(e){} btn.textContent=label; btn.onclick=()=>savePDF(btn); };
+      btn.disabled=false; btn.textContent=(kind==="png"?"PNG":"PDF")+" ready — tap to share";
+      btn.onclick=async()=>{ try{ await navigator.share({files:[r],title:r.name}); }catch(e){} btn.textContent=label; btn.onclick=()=>savePDF(btn,kind); };
       return;
     }
-  }catch(e){ console.error(e); alert("Couldn't build the PDF: "+e.message); }
+  }catch(e){ console.error(e); alert("Couldn't build the "+kind.toUpperCase()+": "+(e&&e.message||e)); }
   if(btn){ btn.disabled=false; btn.textContent=label; }
 }
 function importJSON(e){ const f=e.target.files[0]; if(!f) return; f.text().then(t=>{ try{ S=migrate(JSON.parse(t)); save(); step=0; render(); }catch(err){ document.getElementById("view").insertAdjacentHTML("afterbegin",'<div class="note warn">Could not read that file.</div>'); } }); }
