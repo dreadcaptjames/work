@@ -169,7 +169,7 @@ const STEPS = ["Project","Displays","Sources","Routing","Audio","Cameras","Contr
 const DISPLAY_TYPES = ["Flat panel","Projector + screen","LED video wall","Interactive display","Confidence monitor"];
 const SOURCE_TYPES = ["Laptop (HDMI/USB-C)","Wireless presentation","Room PC","Cable / IPTV","Media player","Document camera","Camera feed","Digital signage player","Blu-ray / other"];
 const LOCS = ["Table","Lectern","Wall plate","Credenza","Equipment rack","Ceiling","Remote room / IDF"];
-const ROOM_TYPES = ["Huddle room","Conference room","Boardroom","Training / classroom","Divisible room","Auditorium","Lobby / signage","Multi-room / campus","Other"];
+const ROOM_TYPES = ["Huddle room","Conference room","Boardroom","Training room","Classroom","Divisible room","Auditorium","Lobby / signage","Multi-room / campus","Other"];
 
 // ---------- Product catalog (real models; verify current availability with distributor) ----------
 // Each entry: [brand, model, short description, ecosystems]
@@ -597,6 +597,7 @@ function uid(){ return Math.random().toString(36).slice(2,8); }
 function migrate(o){
   const b=blank(); o=Object.assign(b,o); o.view=Object.assign({netLines:false},o.view);
   if(!Array.isArray(o.cameras)){ o.cameras=[]; }
+  if(o.project && o.project.roomType==="Training / classroom") o.project.roomType="Classroom";
   if(o.conf && "platform" in o.conf){
     const old=o.conf, n=+old.cameras||0;
     for(let i=0;i<n;i++) o.cameras.push({id:uid(),name:"Camera "+(i+1),type:old.cameraType==="Video bar (integrated)"?"Video bar (camera + mics + speakers)":old.cameraType==="Intelligent / multi-lens"?"Intelligent / auto-framing":old.cameraType||"PTZ",mount:"Front wall",purpose:"Whole room",conn:"USB",tracking:!!old.tracking});
