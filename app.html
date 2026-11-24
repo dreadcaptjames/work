@@ -149,7 +149,7 @@ main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
 <div class="navbar noprint"><div class="in" id="navbar"></div></div>
 
 <script>
-const STEPS = ["Project","Displays","Sources","Routing","Audio","Conferencing","Control","Infrastructure","Sketch"];
+const STEPS = ["Project","Displays","Sources","Routing","Audio","Cameras","Control","Infrastructure","Sketch"];
 const DISPLAY_TYPES = ["Flat panel","Projector + screen","LED video wall","Interactive display","Confidence monitor"];
 const SOURCE_TYPES = ["Laptop (HDMI/USB-C)","Wireless presentation","Room PC","Cable / IPTV","Media player","Document camera","Camera feed","Digital signage player","Blu-ray / other"];
 const LOCS = ["Table","Lectern","Wall plate","Credenza","Equipment rack","Ceiling","Remote room / IDF"];
@@ -179,6 +179,9 @@ const CAT = {
   vc_teams:[["Logitech","Rally Bar","All-in-one video bar (Teams/Zoom)","*"],["Poly","Studio X52","Video bar, Teams/Zoom","*"],["Neat","Neat Bar Pro","Video bar, Teams/Zoom","*"],["Yealink","MeetingBar A30","Video bar, Teams/Zoom","*"],["Crestron","Flex UC-C/UC-B series","Teams/Zoom room kit","crestron"]],
   vc_compute:[["Logitech","RoomMate + Tap IP","Appliance compute for larger rooms","*"],["Crestron","UC-ENGINE","Teams/Zoom room compute","crestron"],["Q-SYS","NC-Series + Core","Q-SYS native UC","qsys"],["Lenovo","ThinkSmart Core","Teams Room compute","*"]],
   cam_ptz:[["Logitech","Rally Camera","PTZ, USB","*"],["Q-SYS","NC-20x60","20× PTZ network camera","qsys"],["Crestron","1 Beyond i12","PTZ, auto-tracking","crestron"],["AVer","CAM520 Pro3","PTZ, PoE/USB","*"],["Huddly","L1","Intelligent wide, AI framing","*"]],
+  cam_fixed:[["Huddly","IQ","Fixed wide-angle, AI framing, USB","*"],["Logitech","Sight","Tabletop 315° AI companion camera","*"],["AVer","CAM340+","4K fixed wide, USB","*"]],
+  cam_intel:[["Huddly","L1","Intelligent wide, AI framing, IP/PoE","*"],["Logitech","Rally Camera","PTZ with auto-framing","*"],["Crestron","1 Beyond i12","Auto-tracking PTZ","crestron"],["Q-SYS","NC-20x60","PTZ with Q-SYS Seervision tracking","qsys"]],
+  cam_bar:[["Logitech","Rally Bar","Video bar: camera + mics + speakers","*"],["Poly","Studio X52","Video bar","*"],["Neat","Neat Bar Pro","Video bar","*"],["Yealink","MeetingBar A30","Video bar","*"]],
   usb_bridge:[["Logitech","Swytch","BYOD laptop link to room cam/mics","*"],["Q-SYS","NV-32-H / I/O-USB Bridge","USB bridge to Q-SYS","qsys"]],
   wireless:[["Barco","ClickShare CX-50 Gen 2","Wireless conferencing + presentation","*"],["Crestron","AirMedia AM-3200","Wireless presentation","crestron"],["Mersive","Solstice Pod","Wireless collaboration","*"]],
   touch:[["Crestron","TSW-770","7\" touch panel","crestron"],["Crestron","TSW-1070","10\" touch panel","crestron"],["Extron","TLP Pro 725T","7\" tabletop touch panel","extron"]],
@@ -206,20 +209,31 @@ const blank = () => ({
   displays:[], sources:[], routes:{},
   routing:{mode:"auto",preview:false},
   audio:{program:true,speech:false,mics:[],speakers:"Ceiling",speakerCount:"",dsp:"auto",aec:"auto",assist:false},
-  conf:{platform:"None",cameras:0,cameraType:"PTZ",tracking:false,usbBridge:false},
+  cameras:[],
+  conf:{farEnd:false,usbBridge:false},
   control:{type:"Touch panel",panels:1,scheduler:false,lighting:false,shades:false,occupancy:false,notes:""},
   infra:{maxRun:"",rackLoc:"Credenza",network:"Shared corporate",power:"",notes:"",eco:"auto"},
   picks:{}
 });
 
-let S = load() || blank();
+function uid(){ return Math.random().toString(36).slice(2,8); }
+function migrate(o){
+  const b=blank(); o=Object.assign(b,o);
+  if(!Array.isArray(o.cameras)){ o.cameras=[]; }
+  if(o.conf && "platform" in o.conf){
+    const old=o.conf, n=+old.cameras||0;
+    for(let i=0;i<n;i++) o.cameras.push({id:uid(),name:"Camera "+(i+1),type:old.cameraType==="Video bar (integrated)"?"Video bar (camera + mics + speakers)":old.cameraType==="Intelligent / multi-lens"?"Intelligent / auto-framing":old.cameraType||"PTZ",mount:"Front wall",purpose:"Whole room",conn:"USB",tracking:!!old.tracking});
+    o.conf={farEnd:old.platform!=="None",usbBridge:!!old.usbBridge||/BYOD|Hybrid/.test(old.platform)};
+  }
+  return o;
+}
+let S = migrate(load() || blank());
 let step = 0;
 window.onThemeChange = () => { if(document.getElementById("view")) render(); };
 
 function load(){ try{ return JSON.parse(localStorage.getItem("avsketch")); }catch(e){ return null; } }
 let savedT;
 function save(){ try{ localStorage.setItem("avsketch", JSON.stringify(S)); const el=document.getElementById("saved"); if(el){ el.classList.add("show"); clearTimeout(savedT); savedT=setTimeout(()=>el.classList.remove("show"),1200);} }catch(e){} }
-const uid = () => Math.random().toString(36).slice(2,8);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const opts = (arr, v) => arr.map(o => `<option ${o==v?"selected":""}>${esc(o)}</option>`).join("");
 
@@ -310,15 +324,22 @@ Audio(){
   <div class="addrow"><button onclick="S.audio.mics.push({type:'Ceiling array',qty:1});save();render()">＋ Add microphones</button></div>
   ${a.speakerCount==="" && S.project.length && S.project.width ? `<div class="note">Rough ceiling speaker count for ${S.project.length}×${S.project.width} ft at ~9 ft ceiling: <b>${Math.max(2,Math.ceil(S.project.length*S.project.width/150))}</b></div>`:""}`;
 },
-Conferencing(){
-  const c=S.conf;
-  return `<h2>Does the far end need to see and hear us?</h2><p class="q">Video conferencing and remote participation.</p>
-  <div class="grid">${sel("Platform","conf.platform",["None","Microsoft Teams Room","Zoom Room","Google Meet","BYOD (laptop drives the call)","Hybrid (native + BYOD)","Codec / SIP"],c.platform,true)}
-  ${field("Cameras","conf.cameras",c.cameras,"number")}
-  ${sel("Camera type","conf.cameraType",["PTZ","Fixed wide","Video bar (integrated)","Intelligent / multi-lens"],c.cameraType)}</div>
-  ${chk("Auto-tracking / speaker framing","conf.tracking",c.tracking)}
-  ${chk("USB bridge so laptops can use room camera/mics","conf.usbBridge",c.usbBridge)}
-  ${c.platform!=="None" && !S.audio.mics.length ? `<div class="note warn">Conferencing is on but no microphones are listed — add them on the Audio step.</div>`:""}`;
+Cameras(){
+  const CT=["PTZ","Fixed wide","Intelligent / auto-framing","Video bar (camera + mics + speakers)"];
+  const list=S.cameras.map((c,i)=>`<div class="item"><button class="sm x" onclick="del('cameras',${i})">✕</button>
+   <div class="grid">${field("Name","cameras."+i+".name",c.name)}${sel("Type","cameras."+i+".type",CT,c.type,true)}
+   ${sel("Mount","cameras."+i+".mount",["Front wall","Rear wall","Side wall","Ceiling","Above display","Below display","Tabletop","Lectern"],c.mount)}
+   ${sel("Frames","cameras."+i+".purpose",["Whole room","Presenter","Audience","Table / participants","Whiteboard / content"],c.purpose)}
+   ${sel("Connection","cameras."+i+".conn",["USB","HDMI","SDI","IP / NDI","HDBaseT"],c.conn,true)}
+   <div>${chk("Auto-tracking","cameras."+i+".tracking",c.tracking)}</div></div></div>`).join("");
+  return `<h2>What do the cameras need to see?</h2><p class="q">Add each camera: where it mounts, what it frames, and how it connects.</p>
+  ${list || '<div class="empty">No cameras. Add one for each view the room needs: presenter, audience, whole room.</div>'}
+  <label>Quick add</label><div class="chips noprint">${[["Front of room","PTZ","Rear wall","Presenter"],["Audience","PTZ","Front wall","Audience"],["Wide room","Fixed wide","Above display","Whole room"],["Auto-framing","Intelligent / auto-framing","Below display","Table / participants"]].map(q=>`<button onclick='addCamera(${JSON.stringify(q)})'>＋ ${q[0]}</button>`).join("")}</div>
+  <div class="addrow"><button onclick="addCamera()">＋ Add camera</button></div>
+  ${chk("Room joins video calls (far-end audio, turns AEC on in auto)","conf.farEnd",S.conf.farEnd,true)}
+  ${chk("USB bridge so a laptop can use the room cameras and mics","conf.usbBridge",S.conf.usbBridge,true)}
+  ${S.cameras.some(c=>c.conn==="USB") && !S.conf.usbBridge ? `<div class="note">USB cameras need a USB host: a room PC or a USB bridge. Turn on the USB bridge above if a laptop drives the call.</div>`:""}
+  ${S.cameras.some(c=>c.conn==="USB" && ["Rear wall","Ceiling"].includes(c.mount)) ? `<div class="note warn">USB runs past ~16 ft need an active extender. Consider IP or HDBaseT for rear-wall or ceiling cameras.</div>`:""}`;
 },
 Control(){
   const c=S.control;
@@ -354,6 +375,9 @@ Sketch(){
 // ---------- Logic ----------
 function addDisplay(n=1){ for(let i=0;i<n;i++){ const k=S.displays.length+1; S.displays.push({id:uid(),name:"Display "+k,type:"Flat panel",size:"",res:"4K",loc:"",dist:""}); } save(); render(); }
 function addSource(t="Laptop (HDMI/USB-C)"){ const k=S.sources.length+1; S.sources.push({id:uid(),name:t.split(" (")[0]+" "+k,type:t,loc:t.includes("PC")||t.includes("IPTV")||t.includes("player")?"Equipment rack":"Table",audio:true}); save(); render(); }
+function addCamera(q){ const k=S.cameras.length+1; q=q||["Camera","PTZ","Front wall","Whole room"];
+  S.cameras.push({id:uid(),name:q[0]+(q[0]==="Camera"?" "+k:""),type:q[1],mount:q[2],purpose:q[3],conn:q[1].startsWith("Video bar")||q[1]==="Fixed wide"?"USB":"IP / NDI",tracking:q[1].startsWith("Intelligent")}); save(); render(); }
+function hasBar(){ return S.cameras.some(c=>c.type.startsWith("Video bar")); }
 function del(path,i){ const keys=path.split("."); let o=S; keys.forEach(k=>o=o[k]); o.splice(i,1); save(); render(); }
 function toggleRoute(s,d,v){ S.routes[s+"|"+d]=v; save(); render(); }
 function routeAll(v){ S.sources.forEach(s=>S.displays.forEach(d=>S.routes[s.id+"|"+d.id]=v)); save(); render(); }
@@ -385,11 +409,12 @@ function checks(){
   if(!S.sources.length) n.push("No sources defined.");
   S.displays.forEach(d=>{ if(!routed().some(r=>r[1]===d.id)) n.push(`${esc(d.name)} has no sources routed to it.`); if(!d.dist) n.push(`${esc(d.name)}: cable distance unknown — needed to pick HDMI vs HDBaseT vs fiber.`); });
   S.sources.forEach(s=>{ if(!routed().some(r=>r[0]===s.id)) n.push(`${esc(s.name)} isn't routed anywhere.`); });
-  if(S.conf.platform!=="None" && !S.conf.cameras && S.conf.cameraType!=="Video bar (integrated)") n.push("Conferencing selected but no cameras.");
+  if(S.conf.farEnd && !S.cameras.length) n.push("Room joins video calls but no cameras are listed.");
+  if(S.conf.farEnd && !S.audio.mics.length && !hasBar()) n.push("Room joins video calls but no microphones are listed.");
   if(S.audio.speech && S.audio.mics.some(m=>m.type==="Ceiling array")) n.push("Speech reinforcement with ceiling mics is prone to feedback — review gain-before-feedback.");
   if(aecOn()){
     const dsp=needsDSP(), dItem=items().find(i=>i.key==="dsp");
-    if(!dsp && S.conf.cameraType!=="Video bar (integrated)") n.push("AEC is required but DSP is set to Not needed — the far end will hear echo.");
+    if(!dsp && !hasBar()) n.push("AEC is required but DSP is set to Not needed — the far end will hear echo.");
     if(dItem){ const m=pickOf(dItem)[1], cap=AEC_CAP[m], ch=aecChannels();
       if(cap===undefined) n.push(`${esc(m)}: AEC capacity not listed — confirm it supports ${ch} AEC channel(s).`);
       else if(cap!=="sw" && ch>cap) n.push(`${esc(m)} has ${cap} AEC channels but ${ch} are needed — step up a model or reduce mic channels.`);
@@ -400,19 +425,19 @@ function checks(){
   if(S.infra.network==="Unknown") n.push("Network approach not confirmed with IT.");
   return n;
 }
-function aecOn(){ const v=S.audio.aec||"auto"; return v==="Required" || (v==="auto" && S.conf.platform!=="None"); }
+function aecOn(){ const v=S.audio.aec||"auto"; return v==="Required" || (v==="auto" && !!S.conf.farEnd); }
 // 1 AEC channel per discrete mic; arrays counted as 1 per unit (automixed output)
 function aecChannels(){ return S.audio.mics.reduce((n,m)=>n+(+m.qty||1),0); }
 function aecSummary(){
   const v=S.audio.aec||"auto";
-  if(!aecOn()) return v==="Not needed" ? "AEC off. Fine for presentation-only or reinforcement rooms with no far end." : "AEC off: no conferencing selected. Set to <b>Required</b> if any far-end audio (calls, streaming, remote presenters) touches this room.";
-  const ch=aecChannels(), why=v==="auto"?" (auto: conferencing is on)":"";
-  return `AEC on${why}. <b>${ch||"0"} AEC channel${ch===1?"":"s"}</b> needed: one per mic channel, counting each array as one automixed channel.${S.conf.cameraType==="Video bar (integrated)"?" The video bar's built-in AEC covers its own mics; external mics still need DSP AEC.":""}`;
+  if(!aecOn()) return v==="Not needed" ? "AEC off. Fine for presentation-only or reinforcement rooms with no far end." : "AEC off: video calls not turned on (Cameras step). Set to <b>Required</b> if any far-end audio (calls, streaming, remote presenters) touches this room.";
+  const ch=aecChannels(), why=v==="auto"?" (auto: room joins video calls)":"";
+  return `AEC on${why}. <b>${ch||"0"} AEC channel${ch===1?"":"s"}</b> needed: one per mic channel, counting each array as one automixed channel.${hasBar()?" The video bar's built-in AEC covers its own mics; external mics still need DSP AEC.":""}`;
 }
 function needsDSP(){
   const a=S.audio; if(a.dsp!=="auto") return a.dsp==="Not needed"?null:a.dsp;
   if(aecOn() && a.mics.length) return "Open-architecture DSP";
-  if(a.mics.length || a.speech) return S.conf.cameraType==="Video bar (integrated)"?"Built into codec/bar":"Open-architecture DSP";
+  if(a.mics.length || a.speech) return hasBar()&&!a.mics.length?"Built into codec/bar":"Open-architecture DSP";
   if(a.program && (+a.speakerCount>0 || a.speakers!=="Display speakers only")) return "Small fixed DSP";
   return null;
 }
@@ -460,14 +485,11 @@ function items(){
     const amp=ampSize(nSpk); add("amp","Audio","Amplifier","amp",amp.qty,amp.note);
   }
   if(a.assist) add("ald","Audio","Assistive listening","ald",1,"qty receivers per ADA occupancy table");
-  // Conferencing
-  const c=S.conf;
-  if(c.platform!=="None" && !c.platform.startsWith("BYOD")){
-    if(c.cameraType==="Video bar (integrated)" || (+S.project.seats||0)<=8) add("vc","Conferencing","Video bar / room kit","vc_teams",1,c.platform);
-    else add("vc","Conferencing","Room compute + touch console","vc_compute",1,c.platform);
-  }
-  if(c.platform!=="None" && c.cameras && c.cameraType!=="Video bar (integrated)") add("cam","Conferencing","Camera"+(c.tracking?" (tracking)":""),"cam_ptz",+c.cameras);
-  if(c.usbBridge || c.platform.startsWith("BYOD") || c.platform.startsWith("Hybrid")) add("usb","Conferencing","BYOD / USB bridge","usb_bridge",1);
+  // Cameras: one line per camera type (qty), each with its own model picker
+  const camCat={"PTZ":"cam_ptz","Fixed wide":"cam_fixed","Intelligent / auto-framing":"cam_intel","Video bar (camera + mics + speakers)":"cam_bar"};
+  const camGroups={}; S.cameras.forEach(c=>{ (camGroups[c.type]=camGroups[c.type]||[]).push(c); });
+  Object.entries(camGroups).forEach(([t,cs])=>add("cam_"+camCat[t],"Cameras",t.split(" (")[0]+(cs.some(c=>c.tracking)?" (tracking)":""),camCat[t],cs.length,cs.map(c=>`${c.name}: ${c.mount}, ${c.conn}`).join("; ")));
+  if(S.conf.usbBridge) add("usb","Cameras","USB bridge","usb_bridge",1,"laptop ↔ room cameras/mics");
   // Control
   const t=S.control.type;
   if(t==="Touch panel") add("tp","Control","Touch panel","touch",+S.control.panels||1);
@@ -475,7 +497,7 @@ function items(){
   if(["Touch panel","Button keypad","Mobile / web UI"].includes(t)) add("proc","Control","Control processor","processor",1);
   if(S.control.scheduler) add("sched","Control","Scheduling panel","scheduler",1);
   if(S.control.occupancy) add("occ","Control","Occupancy sensor","occupancy",1);
-  if(!avoip && L.some(i=>["dsp","proc","vc","tp","kp","sched","cam","src_wireless"].includes(i.key)))
+  if(!avoip && L.some(i=>["dsp","proc","tp","kp","sched","src_wireless"].includes(i.key) || i.key.startsWith("cam_")))
     add("netsw","Network","Network switch (control / Dante / VC)","avoip_switch",1,"PoE+, AV VLAN; IGMP if Dante/AES67");
   add("rack","Infrastructure",S.infra.rackLoc+" rack / power","rack",1,S.infra.network);
   return L;
@@ -568,20 +590,25 @@ function diagram(){
   // ---- AUDIO & CONFERENCING ----
   const A=[[],[],[],[],[]];
   S.audio.mics.forEach((m,i)=>A[0].push({id:"mic"+i,title:`Mic ×${m.qty||1} · ${m.type}`,sub:model("mic"+i),kind:"aud"}));
-  if(has("cam")) A[0].push({id:"cam",title:`Camera ×${has("cam").qty}`,sub:model("cam"),kind:"conf"});
-  if(has("vc")) A[1].push({id:"vc",title:S.conf.platform.split(" (")[0],sub:model("vc"),kind:"conf"});
+  const camCat={"PTZ":"cam_ptz","Fixed wide":"cam_fixed","Intelligent / auto-framing":"cam_intel","Video bar (camera + mics + speakers)":"cam_bar"};
+  S.cameras.forEach((c,i)=>A[0].push({id:"cam"+i,title:`${c.name}${c.tracking?" · tracking":""}`,sub:model("cam_"+camCat[c.type])+" · "+c.mount,kind:"conf"}));
   if(has("usb")) A[1].push({id:"usb",title:"USB bridge",sub:model("usb"),kind:"conf"});
   if(has("dsp")) A[2].push({id:"dspx",title:aecOn()?`DSP · AEC ${aecChannels()} ch`:"DSP",sub:model("dsp"),kind:"aud"});
   if(has("amp")) A[3].push({id:"amp",title:`Amplifier ×${has("amp").qty}`,sub:model("amp"),kind:"aud"});
   if(has("spk")) A[4].push({id:"spk",title:`Speakers ×${has("spk").qty}`,sub:model("spk"),kind:"aud"});
   if(has("ald")) A[4].push({id:"ald",title:"Assistive listening",sub:model("ald"),kind:"aud"});
-  band("AUDIO & CONFERENCING",A);
+  band("AUDIO & CAMERAS",A);
   const dspId=N.dspx?"dspx":null;
-  S.audio.mics.forEach((m,i)=>edge("mic"+i,dspId||(N.vc?"vc":null),"audio",/Wireless/.test(m.type)?"RF rx":"Dante/analog"));
-  if(N.cam) edge("cam",N.vc?"vc":N.usb?"usb":null,"usb","USB/IP");
+  S.audio.mics.forEach((m,i)=>edge("mic"+i,dspId,"audio",/Wireless/.test(m.type)?"RF rx":"Dante/analog"));
+  const pcIdx=S.sources.findIndex(x=>x.type==="Room PC");
+  S.cameras.forEach((c,i)=>{ const id="cam"+i;
+    if(c.conn==="USB") edge(id,N.usb?"usb":pcIdx>=0?"s"+pcIdx:null,"usb","USB");
+    else if(c.conn==="IP / NDI") edge(id,avoip?coreId:"net","net","IP/NDI");
+    else edge(id,coreId,"video",c.conn);
+    if(c.type.startsWith("Video bar") && dspId) edge(id,dspId,"audio","USB/Dante");
+  });
   if(N.usb && dspId) edge("usb",dspId,"usb","USB audio");
-  if(N.vc && dspId) edge("vc",dspId,"audio","USB/Dante");
-  if(N.vc && coreId) edge("vc",coreId,"video","HDMI");
+  if(N.usb && coreId) edge("usb",coreId,"video","laptop");
   if(dspId && coreId && S.audio.program) edge(coreId,dspId,"audio","program audio");
   if(dspId) edge(dspId,N.amp?"amp":N.spk?"spk":null,"audio","");
   if(N.amp) edge("amp","spk","audio",S.audio.speakers==="Line array / PA"?"low-Z":"70 V");
@@ -600,8 +627,8 @@ function diagram(){
   const netId=N.net?"net":null;
   ["tp","kp"].forEach(k=>edge(k,N.proc?"proc":null,"control",""));
   edge("occ",N.proc?"proc":null,"control","contact");
-  if(N.proc){ if(coreId) edge("proc",coreId,"control","IP/RS-232"); if(dspId) edge("proc",dspId,"control","IP"); if(N.vc) edge("proc","vc","control","IP"); }
-  if(netId) ["dspx","vc","proc","tp","sched","cam"].forEach(k=>{ if(N[k] && k!==netId) edge(k,netId,"net",""); });
+  if(N.proc){ if(coreId) edge("proc",coreId,"control","IP/RS-232"); if(dspId) edge("proc",dspId,"control","IP"); S.cameras.forEach((c,i)=>{ if(c.type==="PTZ"||c.type.startsWith("Intelligent")) edge("proc","cam"+i,"control","PTZ ctrl"); }); }
+  if(netId) ["dspx","proc","tp","sched"].forEach(k=>{ if(N[k] && k!==netId) edge(k,netId,"net",""); });
 
   // ---- layout + draw ----
   const H=y-30, W=Math.max(1120, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
@@ -818,7 +845,7 @@ async function savePDF(btn){
   }catch(e){ console.error(e); alert("Couldn't build the PDF: "+e.message); }
   if(btn){ btn.disabled=false; btn.textContent=label; }
 }
-function importJSON(e){ const f=e.target.files[0]; if(!f) return; f.text().then(t=>{ try{ S=Object.assign(blank(),JSON.parse(t)); save(); step=0; render(); }catch(err){ document.getElementById("view").insertAdjacentHTML("afterbegin",'<div class="note warn">Could not read that file.</div>'); } }); }
+function importJSON(e){ const f=e.target.files[0]; if(!f) return; f.text().then(t=>{ try{ S=migrate(JSON.parse(t)); save(); step=0; render(); }catch(err){ document.getElementById("view").insertAdjacentHTML("afterbegin",'<div class="note warn">Could not read that file.</div>'); } }); }
 function resetAll(){ if(confirm("Start a new design? Unsaved work will be cleared (export first if you want it).")){ S=blank(); save(); step=0; render(); } }
 render();
 </script>
