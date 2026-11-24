@@ -558,9 +558,10 @@ function hdbtPlan(core,L){
   const swTx=!!coreIt && S.picks.core!==CUSTOM && HDBT_OUT.has(coreModel);
   const dmap={"Flat panel":"panel","Confidence monitor":"panel","Projector + screen":"projector","LED video wall":"led","Interactive display":"interactive"};
   const builtInRx=d=>{ const k="disp_"+dmap[d.type], it=L.find(i=>i.key===k); return !!it && S.picks[k]!==CUSTOM && HDBT_IN.has(pickOf(it)[1]); };
-  const per=long.map(d=>({d, tx:!swTx, rx:!builtInRx(d)}));
+  // Every HDBaseT line is drawn and specified as a discrete Tx + Rx pair
+  const per=long.map(d=>({d, tx:true, rx:true}));
   return {per, tx:per.filter(p=>p.tx).length, rx:per.filter(p=>p.rx).length, swTx,
-    txNote: coreIt ? `${coreModel||"switcher"} has HDMI outputs; Tx at rack` : "Tx at source end of long run"};
+    txNote: "at the rack; HDMI from the switcher"};
 }
 function ampSize(n){
   if(!n) return {qty:1,note:"size once speaker count is known"};
