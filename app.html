@@ -206,6 +206,15 @@ const CAT = {
 };
 // AEC channel capacity by DSP model ("sw" = software AEC that scales with the platform/licensing)
 const AEC_CAP = {"TesiraFORTÉ X 400":4,"TesiraFORTÉ X 800":8,"IntelliMix P300":8,"Core Nano":"sw","Core 8 Flex":"sw"};
+// Network port by model. Absent = no network connection on that model.
+const NETPORT = {
+  "HD-PS622":"LAN","HD-PS402":"LAN","IN1608 xi":"LAN","IN1606":"LAN","AT-OME-PS62":"LAN","NV-32-H (Core Capable)":"Q-LAN",
+  "DXP 84 HD 4K PLUS":"LAN","DXP 88 HD 4K PLUS":"LAN","DXP 168 HD 4K PLUS":"LAN","AT-UHD-PRO3-88M":"LAN",
+  "AMP-X300":"LAN","CX-Q 2K4":"Q-LAN","NetPA U 1004":"PoE+ · Dante",
+  "MXA920":"PoE · Dante","MXA310":"PoE · Dante","TeamConnect Ceiling 2":"PoE · Dante","Parlé TCM-X":"PoE · network audio","NM-T1":"PoE · Q-LAN","ULX-D":"Dante",
+  "TesiraFORTÉ X 400":"Dante · LAN","TesiraFORTÉ X 800":"Dante · LAN","IntelliMix P300":"PoE · Dante","Core Nano":"Q-LAN","Core 8 Flex":"Q-LAN"
+};
+const NET_SRC = {"Room PC":"LAN","Wireless presentation":"LAN","Media player":"LAN","Digital signage player":"LAN","Cable / IPTV":"LAN · IPTV"};
 const ECOS = {auto:"Best fit",crestron:"Crestron",extron:"Extron",qsys:"Q-SYS",atlona:"Atlona"};
 
 const blank = () => ({
@@ -217,12 +226,12 @@ const blank = () => ({
   conf:{farEnd:false,usbBridge:false},
   control:{type:"Touch panel",panels:1,scheduler:false,lighting:false,shades:false,occupancy:false,notes:""},
   infra:{maxRun:"",rackLoc:"Credenza",network:"Shared corporate",power:"",notes:"",eco:"auto"},
-  picks:{}, custom:{}, extras:[]
+  picks:{}, custom:{}, extras:[], view:{netLines:false}
 });
 
 function uid(){ return Math.random().toString(36).slice(2,8); }
 function migrate(o){
-  const b=blank(); o=Object.assign(b,o);
+  const b=blank(); o=Object.assign(b,o); o.view=Object.assign({netLines:false},o.view);
   if(!Array.isArray(o.cameras)){ o.cameras=[]; }
   if(o.conf && "platform" in o.conf){
     const old=o.conf, n=+old.cameras||0;
@@ -370,6 +379,8 @@ Sketch(){
   const core = recommendCore();
   return `<h2>${esc(S.project.name||"Untitled design")} <span class="tag">${esc(S.project.roomType)}</span></h2>
   <p class="q">${[esc(S.project.client), S.project.seats?S.project.seats+" seats":""].filter(Boolean).join(" · ")}</p>
+  <div class="noprint" style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--mute);margin-bottom:.4rem">Network:
+    <button class="sm ${S.view.netLines?"":"pri"}" onclick="S.view.netLines=false;save();render()">Tags</button><button class="sm ${S.view.netLines?"pri":""}" onclick="S.view.netLines=true;save();render()">Lines</button></div>
   <div class="diagram">${diagram()}</div><div class="hint noprint">Swipe the diagram sideways to see all of it →</div>
   <h3 style="font-size:1rem">Equipment sketch</h3>${bom()}
   <h3 style="font-size:1rem">Open items</h3>${(checks().map(n=>`<div class="note warn">${n}</div>`).join(""))||'<div class="note">No open flags.</div>'}
@@ -501,7 +512,7 @@ function items(){
   if(["Touch panel","Button keypad","Mobile / web UI"].includes(t)) add("proc","Control","Control processor","processor",1);
   if(S.control.scheduler) add("sched","Control","Scheduling panel","scheduler",1);
   if(S.control.occupancy) add("occ","Control","Occupancy sensor","occupancy",1);
-  if(!avoip && L.some(i=>["dsp","proc","tp","kp","sched","src_wireless"].includes(i.key) || i.key.startsWith("cam_")))
+  if(!avoip && L.some(i=>["core","dsp","proc","tp","kp","sched","src_wireless","src_pc","src_player","src_iptv"].includes(i.key) || i.key.startsWith("cam_")))
     add("netsw","Network","Network switch (control / Dante / IP cameras)","avoip_switch",1,"PoE+, AV VLAN; IGMP if Dante/AES67");
   add("rack","Infrastructure",S.infra.rackLoc+" rack / power","rack",1,S.infra.network);
   (S.extras||[]).forEach(x=>L.push({key:"x_"+x.id,cat:x.cat||"Other",role:x.role||"Custom item",catKey:"",qty:+x.qty||1,note:x.note||"",extra:x}));
@@ -621,18 +632,19 @@ function diagram(){
   if(has("ald")) A[4].push({id:"ald",title:"Assistive listening",sub:model("ald"),kind:"aud"});
   band("AUDIO & CAMERAS",A);
   const dspId=N.dspx?"dspx":null;
-  S.audio.mics.forEach((m,i)=>edge("mic"+i,dspId,"audio",/Wireless/.test(m.type)?"RF rx":"Dante/analog"));
+  const port=k=>{ const it=has(k); if(!it) return null; if(S.picks[k]===CUSTOM) return null; return NETPORT[pickOf(it)[1]]||null; };
+  S.audio.mics.forEach((m,i)=>{ const np=port("mic"+i); edge("mic"+i,dspId,"audio",np?(np.includes("Q-LAN")?"Q-LAN":"Dante")+" (network)":/Wireless/.test(m.type)?"analog (RF rx)":"analog"); });
   const pcIdx=S.sources.findIndex(x=>x.type==="Room PC");
   S.cameras.forEach((c,i)=>{ const id="cam"+i;
     if(c.conn==="USB") edge(id,N.usb?"usb":pcIdx>=0?"s"+pcIdx:null,"usb","USB");
-    else if(c.conn==="IP / NDI") edge(id,avoip?coreId:"net","net","IP/NDI");
+    else if(c.conn==="IP / NDI") edge(id,"net","net","PoE · IP/NDI");
     else edge(id,coreId,"video",c.conn);
     if(c.type.startsWith("Video bar") && dspId) edge(id,dspId,"audio","USB/Dante");
   });
   if(N.usb && dspId) edge("usb",dspId,"usb","USB audio");
   if(N.usb && coreId) edge("usb",coreId,"video","laptop");
   if(dspId && coreId && S.audio.program) edge(coreId,dspId,"audio","program audio");
-  if(dspId) edge(dspId,N.amp?"amp":N.spk?"spk":null,"audio","");
+  if(dspId) edge(dspId,N.amp?"amp":N.spk?"spk":null,"audio",N.amp?(/Dante|Q-LAN/.test(port("amp")||"")?(port("amp").includes("Q-LAN")?"Q-LAN":"Dante"):"analog"):"");
   if(N.amp) edge("amp","spk","audio",S.audio.speakers==="Line array / PA"?"low-Z":"70 V");
   if(dspId && N.ald) edge(dspId,"ald","audio","");
 
@@ -653,7 +665,22 @@ function diagram(){
   ["tp","kp"].forEach(k=>edge(k,N.proc?"proc":null,"control",""));
   edge("occ",N.proc?"proc":null,"control","contact");
   if(N.proc){ if(coreId) edge("proc",coreId,"control","IP/RS-232"); if(dspId) edge("proc",dspId,"control","IP"); S.cameras.forEach((c,i)=>{ if(c.type==="PTZ"||c.type.startsWith("Intelligent")) edge("proc","cam"+i,"control","PTZ ctrl"); }); }
-  if(netId) ["dspx","proc","tp","sched"].forEach(k=>{ if(N[k] && k!==netId) edge(k,netId,"net",""); });
+  if(netId){
+    const link=(id,l)=>{ if(N[id] && id!==netId) edge(id,netId,"net",l); };
+    if(coreId && !avoip){ const p=port("core"); if(p) link("core",p); }
+    link("dspx",port("dsp")||"LAN"); link("proc","LAN"); link("tp","PoE"); link("sched","PoE");
+    if(N.amp && port("amp")) link("amp",port("amp"));
+    S.audio.mics.forEach((m,i)=>{ const p=port("mic"+i); if(p) link("mic"+i,p); });
+    S.sources.forEach((x,i)=>{ if(NET_SRC[x.type]) link("s"+i,NET_SRC[x.type]); });
+    S.displays.forEach((d,j)=>link("d"+j,"LAN"));
+  }
+  // switch naming + port count (AVoIP: video + control VLAN are one physical switch)
+  const swEdges=E.filter(e=>(e.b===netId&&e.k==="net") || (avoip&&e.k==="video"&&(e.a===coreId||e.b===coreId)&&e.l==="1 GbE"));
+  const ports=swEdges.length, poe=swEdges.filter(e=>/PoE/.test(e.l)||/^(enc|dec)/.test(e.a===coreId?e.b:e.a)).length;
+  if(avoip && coreId) N[coreId].title="NSW-1 · AV network switch";
+  if(N.net) N.net.title=(avoip?"NSW-1 · control/Dante VLAN":"NSW-1 · network switch");
+  const swNode=avoip?N[coreId]:N.net;
+  if(swNode && ports) swNode.sub=`${ports} ports${poe?` (${poe} PoE)`:""} · `+swNode.sub.replace(/^same switch: /,"");
 
   // ---- layout + draw ----
   const H=y-30, W=Math.max(1120, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
@@ -665,8 +692,10 @@ function diagram(){
   // legend
   const LG=[["Video","video"],["Audio","audio"],["Control","control"],["Network","net"],["USB","usb"]];
   LG.forEach(([t,k],i)=>{ const lx=W-20-(LG.length-i)*88, [c,da]=ST[k]; g+=`<line x1="${lx}" y1="16" x2="${lx+22}" y2="16" stroke="${c}" stroke-width="2" ${da?`stroke-dasharray="${da}"`:""}/><text x="${lx+27}" y="20" fill="${D.mute}" font-size="10">${t}</text>`; });
+  const tags={}, netTags=!(S.view&&S.view.netLines);
   E.forEach(e=>{
     const A1=N[e.a], B1=N[e.b]; if(!A1||!B1) return;
+    if(netTags && e.k==="net" && e.b==="net"){ (tags[e.a]=tags[e.a]||[]).push((e.l||"LAN")+" → NSW-1"); return; }
     const [c,da,w]=ST[e.k]; let x1,y1,x2,y2,p;
     if(A1.col===B1.col){
       const lo=Math.min(A1.y,B1.y), hi=Math.max(A1.y,B1.y);
@@ -687,6 +716,8 @@ function diagram(){
     if(e.l) g+=`<text x="${(x1+x2)/2}" y="${(y1+y2)/2-4}" text-anchor="middle" fill="${c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(e.l)}</text>`;
   });
   Object.values(N).forEach(n=>g+=box(n.x,n.y,bw,bh,n.title,n.sub,n.kind==="core"?D.accbg:D.panel,KS[n.kind]||D.line,n.kind==="core"));
+  Object.entries(tags).forEach(([id,ts])=>{ const n=N[id]; const t=[...new Set(ts)].join(", "), tw=Math.min(bw-8,t.length*5.4+12);
+    g+=`<rect x="${n.x+bw-tw}" y="${n.y+bh+2}" width="${tw}" height="13" rx="6.5" fill="${D.field}" stroke="${D.acc2}" stroke-width="1"/><text x="${n.x+bw-tw/2}" y="${n.y+bh+11.5}" text-anchor="middle" fill="${D.acc2}" font-size="9">${esc(t)}</text>`; });
   LAST_LAYOUT={N,E,W,H,secs,bw,bh};
   return g+"</svg>";
 }
