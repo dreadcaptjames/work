@@ -643,7 +643,7 @@ function diagram(){
   if(has("sched")) C[0].push({id:"sched",title:"Scheduling panel",sub:model("sched"),kind:"ctl"});
   if(has("occ")) C[1].push({id:"occ",title:"Occupancy sensor",sub:model("occ"),kind:"ctl"});
   if(has("proc")) C[2].push({id:"proc",title:"Control processor",sub:model("proc"),kind:"ctl"});
-  if(has("netsw")) C[3].push({id:"net",title:avoip?"Network · control/Dante VLAN":"Network switch",sub:avoip?"same switch: "+model("netsw"):model("netsw"),kind:"net"});
+  if(has("netsw")) C[2].push({id:"net",title:avoip?"Network · control/Dante VLAN":"Network switch",sub:avoip?"same switch: "+model("netsw"):model("netsw"),kind:"net"});
   C[4].push({id:"rack",title:S.infra.rackLoc+" rack",sub:model("rack")+(S.infra.network?" · "+S.infra.network:""),kind:"ctl"});
   band("CONTROL & NETWORK",C);
   const X=[[],[],[],[],[]];
@@ -669,8 +669,16 @@ function diagram(){
     const A1=N[e.a], B1=N[e.b]; if(!A1||!B1) return;
     const [c,da,w]=ST[e.k]; let x1,y1,x2,y2,p;
     if(A1.col===B1.col){
-      const dn=A1.y<B1.y; x1=x2=A1.x+bw/2+(e.k==="video"?-30:e.k==="audio"?30:0);
-      y1=dn?A1.y+bh:A1.y; y2=dn?B1.y:B1.y+bh; p=`M${x1} ${y1} L${x2} ${y2}`;
+      const lo=Math.min(A1.y,B1.y), hi=Math.max(A1.y,B1.y);
+      const blocked=Object.values(N).some(n=>n.col===A1.col && n!==A1 && n!==B1 && n.y>lo && n.y<hi);
+      if(blocked){ // route around boxes stacked in the same column (e.g. switcher → processor past the DSP)
+        const off={video:6,audio:11,control:16,net:21,usb:26}[e.k]||8, left=e.k==="control"||e.k==="net", sx=left?A1.x-off:A1.x+bw+off;
+        x1=left?A1.x:A1.x+bw; x2=left?B1.x:B1.x+bw; y1=A1.y+bh/2; y2=B1.y+bh/2;
+        p=`M${x1} ${y1} H${sx} V${y2} H${x2}`; x1=x2=sx;
+      } else {
+        const dn=A1.y<B1.y; x1=x2=A1.x+bw/2+(e.k==="video"?-30:e.k==="audio"?30:e.k==="net"?-60:0);
+        y1=dn?A1.y+bh:A1.y; y2=dn?B1.y:B1.y+bh; p=`M${x1} ${y1} L${x2} ${y2}`;
+      }
     } else {
       const fwd=A1.col<B1.col; x1=fwd?A1.x+bw:A1.x; x2=fwd?B1.x:B1.x+bw; y1=A1.y+bh/2; y2=B1.y+bh/2;
       const mx=(x1+x2)/2; p=`M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
