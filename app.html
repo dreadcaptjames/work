@@ -194,10 +194,10 @@ const CAT = {
     ["Crestron","DM-NVX-D30","DM NVX 4K60 decoder","crestron","ml"],
     ["Crestron","DM-NVX-D20","DM NVX decoder, compact","crestron","sm"],
     ["Crestron","DM-NVX-363","DM NVX 4K60 encoder/decoder (configurable), Dante","crestron","ml"],
-    ["Crestron","DM-NVX-D80-IoAV","DM NVX decoder, display-mount","crestron","l"],
+    ["Crestron","DM-NVX-D30","DM NVX 4K60 4:4:4 decoder","crestron","l"],
     ["Extron","NAV SD 101 4K","NAV Pro AV-over-IP decoder","extron","ml"],
     ["Q-SYS","NV-32-H (Core Capable)","Network video endpoint, decoder mode","qsys","sml"],
-    ["Atlona","AT-OMNI-122","OmniStream single-channel decoder","atlona","ml"],
+    ["Atlona","AT-OMNI-121","OmniStream single-channel decoder","atlona","ml"],
     ["Just Add Power","3G+ series receiver","4K HDMI over IP receiver","*","sml"],
     ["Kramer","KDS-7 series decoder","4K AVoIP decoder","*","ml"]],
   avoip_switch:[
@@ -234,15 +234,13 @@ const CAT = {
     ["Kramer","VS-211X","2×1 4K auto-switcher","*","s"],
     ["Extron","SW2 HD 4K PLUS","2-input 4K HDMI switcher","extron","s"],
     ["Extron","SW4 HD 4K PLUS","4-input 4K HDMI switcher","extron","s"],
-    ["Atlona","AT-UHD-SW-510W","5×1 4K switcher with wall plate, HDBaseT out","atlona","s"],
+    ["Atlona","AT-UHD-SW-510W","5×2 4K switcher with wall plate, HDBaseT out","atlona","s"],
     ["Crestron","HD-PS401","4×1 4K presentation switcher, HDBaseT out","crestron","s"],
     ["Crestron","HD-PS402","4×2 4K presentation switcher","crestron","sm"],
-    ["Crestron","HD-PS621","6×1 4K presentation switcher","crestron","m"],
-    ["Crestron","HD-PS622","6×2 4K presentation switcher, HDBaseT outs","crestron","m"],
+    ["Crestron","HD-PS622","8×2 4K presentation switcher (6 HDMI + 2 DM Lite), HDBaseT outs","crestron","m"],
     ["Extron","IN1606","6-input scaling presentation switcher","extron","m"],
     ["Extron","IN1608 xi","8-input scaling presentation switcher w/ DTP","extron","m"],
     ["Atlona","AT-OME-PS62","Omega 6×2 presentation switcher","atlona","m"],
-    ["Atlona","AT-OME-MS52W","Omega 5×2 matrix switcher with wall plate","atlona","sm"],
     ["Q-SYS","NV-32-H (Core Capable)","3-in HDMI switcher endpoint","qsys","sm"]],
   matrix:[
     ["Extron","DXP 44 HD 4K PLUS","4×4 HDMI matrix","extron","sm"],
@@ -289,8 +287,8 @@ const CAT = {
     ["Q-SYS","CX-Q 4K4","4×1000 W network amp","qsys","ml"],
     ["Q-SYS","CX-Q 8K4","4×2000 W network amp","qsys","l"],
     ["Crestron","AMP-X300","300 W 70/100 V or 4/8 Ω","crestron","sm"],
-    ["Crestron","AMP-2210T","2×100 W, 70/100 V","crestron","sm"],
-    ["Crestron","AMP-8075","8×75 W multi-channel amp","crestron","m"],
+    ["Crestron","AMP-X500","2-ch 500 W amp, 70/100 V","crestron","sm"],
+    ["Crestron","AMP-X1000","1000 W amp, 70/100 V","crestron","m"],
     ["Extron","XPA 2001-70V","200 W 70 V mono amp","extron","sm"],
     ["Extron","NetPA U 1002","2×100 W Dante amp","extron","s"],
     ["Extron","NetPA U 1004","4×100 W Dante amp","extron","sm"],
@@ -441,7 +439,7 @@ const CAT = {
   doccam:[
     ["Elmo","MX-P3","4K document camera","*","sm"],
     ["IPEVO","VZ-X","Document camera","*","s"],
-    ["Lumens","DC-F80","4K document camera","*","m"]],
+    ["Lumens","DC-W80","4K wireless document camera","*","m"]],
 
   // ---- Control ----
   touch:[
@@ -456,7 +454,7 @@ const CAT = {
   keypad:[
     ["Extron","MLC Plus 100","MediaLink controller","extron","s"],
     ["Extron","MLC Plus 200","MediaLink controller with volume knob","extron","s"],
-    ["Crestron","HZ-KPCN series","Horizon keypad","crestron","s"]],
+    ["Crestron","HZ2-KPCN series","Horizon 2 keypad","crestron","s"]],
   processor:[
     ["Crestron","CP4N","Control processor","crestron","ml"],
     ["Crestron","MC4-R","Room control processor","crestron","s"],
@@ -519,15 +517,15 @@ const CAT = {
 };
 // Inputs × outputs for switchers and matrices (used to pick the smallest model that fits)
 const IO = {
-  "VS-211X":[2,1],"SW2 HD 4K PLUS":[2,1],"SW4 HD 4K PLUS":[4,1],"AT-UHD-SW-510W":[5,1],"HD-PS401":[4,1],"HD-PS402":[4,2],"HD-PS621":[6,1],"HD-PS622":[6,2],
-  "IN1606":[6,1],"IN1608 xi":[8,2],"AT-OME-PS62":[6,2],"AT-OME-MS52W":[5,2],"NV-32-H (Core Capable)":[3,1],
+  "VS-211X":[2,1],"SW2 HD 4K PLUS":[2,1],"SW4 HD 4K PLUS":[4,1],"AT-UHD-SW-510W":[5,2],"HD-PS401":[4,1],"HD-PS402":[4,2],"HD-PS622":[8,2],
+  "IN1606":[6,1],"IN1608 xi":[8,2],"AT-OME-PS62":[6,2],"NV-32-H (Core Capable)":[3,1],
   "DXP 44 HD 4K PLUS":[4,4],"DXP 84 HD 4K PLUS":[8,4],"DXP 88 HD 4K PLUS":[8,8],"DXP 168 HD 4K PLUS":[16,8],"DXP 1616 HD 4K PLUS":[16,16],
   "DM-MD8X8-CPU3":[8,8],"DM-MD16X16-CPU3":[16,16],"DM-MD32X32-CPU3":[32,32],"AT-UHD-PRO3-66M":[6,6],"AT-UHD-PRO3-88M":[8,8],"VS-88H2":[8,8]
 };
 // Approximate total output power (W) for amplifiers
 const AMPW = {
   "SPA2-60":120,"SPA2-200":400,"SPA4-100":400,"MP-A40V":40,"CX-Q 2K4":2000,"CX-Q 4K4":4000,"CX-Q 8K4":8000,
-  "AMP-X300":300,"AMP-2210T":200,"AMP-8075":600,"XPA 2001-70V":200,"NetPA U 1002":200,"NetPA U 1004":400,"Quattrocanali 4804 DSP+D":4800
+  "AMP-X300":300,"AMP-X500":500,"AMP-X1000":1000,"Tesira AMP-450BP":120,"XPA 2001-70V":200,"NetPA U 1002":200,"NetPA U 1004":400,"Quattrocanali 4804 DSP+D":4800
 };
 // AEC channel capacity by DSP model ("sw" = software AEC that scales with the platform/licensing)
 const AEC_CAP = {"TesiraFORTÉ X 400":4,"TesiraFORTÉ X 800":8,"IntelliMix P300":8,"Core Nano":"sw","Core 8 Flex":"sw","Core 110f":"sw","Core 24f":"sw","Core 510i":"sw"};
@@ -538,7 +536,7 @@ const NETPORT = {
   "AMP-X300":"LAN","CX-Q 2K4":"Q-LAN","NetPA U 1004":"PoE+ · Dante",
   "MXA920":"PoE · Dante","MXA310":"PoE · Dante","TeamConnect Ceiling 2":"PoE · Dante","Parlé TCM-X":"PoE · network audio","NM-T1":"PoE · Q-LAN","ULX-D":"Dante",
   "TesiraFORTÉ X 400":"Dante · LAN","TesiraFORTÉ X 800":"Dante · LAN","IntelliMix P300":"PoE · Dante","Core Nano":"Q-LAN","Core 8 Flex":"Q-LAN",
-  "HD-PS401":"LAN","HD-PS621":"LAN","DXP 44 HD 4K PLUS":"LAN","DXP 1616 HD 4K PLUS":"LAN","DM-MD8X8-CPU3":"LAN","DM-MD16X16-CPU3":"LAN","DM-MD32X32-CPU3":"LAN","AT-UHD-PRO3-66M":"LAN","VS-88H2":"LAN",
+  "HD-PS401":"LAN","DXP 44 HD 4K PLUS":"LAN","DXP 1616 HD 4K PLUS":"LAN","DM-MD8X8-CPU3":"LAN","DM-MD16X16-CPU3":"LAN","DM-MD32X32-CPU3":"LAN","AT-UHD-PRO3-66M":"LAN","VS-88H2":"LAN",
   "CX-Q 4K4":"Q-LAN","CX-Q 8K4":"Q-LAN","NetPA U 1002":"PoE+ · Dante","Tesira AMP-450BP":"PoE+ · AVB","Quattrocanali 4804 DSP+D":"Dante · LAN",
   "MXA910":"PoE · Dante","MXA902":"PoE+ · Dante","MXA710":"PoE · Dante","TeamConnect Ceiling Medium":"PoE · Dante","Parlé TCM-XA":"PoE+ · network audio","Parlé TTM-X":"PoE · network audio","ATND1061":"PoE · Dante","Axient Digital":"Dante","MXW":"Dante",
   "TesiraFORTÉ X 1600":"Dante · LAN","TesiraSERVER-IO":"LAN · network audio","Core 110f":"Q-LAN","Core 24f":"Q-LAN","Core 510i":"Q-LAN",
