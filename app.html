@@ -303,7 +303,8 @@ Displays(){
 Sources(){
   const list = S.sources.map((s,i)=>`<div class="item"><button class="sm x" onclick="del('sources',${i})">✕</button>
    <div class="grid">${field("Name","sources."+i+".name",s.name)}${sel("Type","sources."+i+".type",SOURCE_TYPES,s.type)}
-   ${sel("Location","sources."+i+".loc",LOCS,s.loc)}${chk("Carries audio","sources."+i+".audio",s.audio)}</div></div>`).join("");
+   ${sel("Location","sources."+i+".loc",LOCS,s.loc,true)}${s.loc!=="Equipment rack"?field("Cable distance to rack (ft)","sources."+i+".dist",s.dist,"number",'data-rc="1"'):""}
+   ${chk("Carries audio","sources."+i+".audio",s.audio)}</div></div>`).join("");
   return `<h2>What are we trying to get to them?</h2><p class="q">List every source that needs to be seen — and where it plugs in.</p>
   ${list || '<div class="empty">No sources yet — tap a common one below to start.</div>'}
   <label>Quick add</label><div class="chips noprint">${SOURCE_TYPES.map(t=>`<button onclick="addSource('${t}')">＋ ${t.split(" (")[0]}</button>`).join("")}</div>
@@ -464,7 +465,7 @@ function needsDSP(){
 // Build structured equipment list: {key, cat, role, catKey, qty, note}
 function items(){
   const L=[], add=(key,cat,role,catKey,qty,note="")=>{ if(qty>0||qty==="TBD") L.push({key,cat,role,catKey,qty,note}); };
-  const core=recommendCore().name, avoip=core.startsWith("AV over IP");
+  const core=recommendCore().name, avoip=core.startsWith("AV over IP"), direct=core.startsWith("Direct");
   const routedSrc=S.sources.filter(s=>routed().some(r=>r[0]===s.id));
   const routedDsp=S.displays.filter(d=>routed().some(r=>r[1]===d.id));
   // Displays
@@ -482,8 +483,9 @@ function items(){
     const hb=hdbtPlan(core,L);
     if(hb.tx) add("hdtx","Video","HDBaseT transmitter","hdbt_tx",hb.tx,hb.txNote);
     if(hb.rx) add("hdrx","Video","HDBaseT receiver","hdbt_rx",hb.rx,"at displays; HDMI to display");
-    const remote=S.sources.filter(s=>["Table","Lectern","Wall plate"].includes(s.loc)).length;
-    if(remote && S.infra.rackLoc!=="Credenza") add("srctx","Video","HDBaseT transmitter (input side)","hdbt_tx",remote,"table/wall inputs back to rack");
+    if(!direct){ const ext=S.sources.filter(srcNeedsExt).length;
+      if(ext){ add("srctx","Video","HDBaseT transmitter (input side)","hdbt_tx",ext,"at the source location");
+               add("srcrx","Video","HDBaseT receiver (input side)","hdbt_rx",ext,"at the rack; HDMI into switcher"); } }
   }
   const tableIn=S.sources.filter(s=>s.loc==="Table").length; if(tableIn) add("tbox","Video","Table input box","tableinput",1,`${tableIn} connection(s)`);
   // Sources
@@ -523,6 +525,13 @@ function items(){
   return L;
 }
 // Which long-run displays need a separate HDBaseT Tx / Rx, based on the picked switcher and display models
+// Does a source need an HDBaseT Tx/Rx pair back to the rack? Distance wins; otherwise compare locations.
+function srcNeedsExt(s){
+  if(s.loc==="Equipment rack") return false;
+  if(+s.dist>0) return +s.dist>25;
+  const r=S.infra.rackLoc, near={"Lectern":["Lectern"],"Credenza":["Table","Credenza"],"Behind display":["Table","Credenza","Wall plate"],"Floor rack in room":["Credenza"],"Wall rack":["Credenza"]};
+  return !(near[r]||[]).includes(s.loc);
+}
 function hdbtPlan(core,L){
   const long=S.displays.filter(d=>transport(d.dist)==="HDBaseT");
   const coreIt=L.find(i=>i.key==="core"), coreModel=coreIt?pickOf(coreIt)[1]:"";
@@ -613,9 +622,9 @@ function diagram(){
     let last=node("s"+i,0,rowY(i),s.name,sub,"src");
     const r=routed().some(x=>x[0]===s.id);
     if(avoip && r){ const t=node("enc"+i,1,rowY(i),"Encoder",model("enc"),"ep"); edge(last,t,"video","HDMI"); last=t; }
-    else if(!avoip && has("srctx") && ["Table","Lectern","Wall plate"].includes(s.loc)){ const t=node("tx"+i,1,rowY(i),"HDBaseT transmitter",model("srctx"),"ep"); edge(last,t,"video","HDMI"); last=t; }
+    else if(!avoip && !direct && has("srctx") && srcNeedsExt(s)){ const t=node("tx"+i,1,rowY(i),"HDBaseT Tx",model("srctx"),"ep",0,120,-40); edge(last,t,"video","HDMI"); const rx=node("srx"+i,1,rowY(i),"HDBaseT Rx",model("srcrx"),"ep",0,120,120); edge(t,rx,"video","HDBaseT"); last=rx; HB.inExt=true; }
     srcEnd[s.id]=last;
-    if(coreId && r) edge(last,coreId,"video",avoip?"1 GbE":"");
+    if(coreId && r) edge(last,coreId,"video",avoip?"1 GbE":"HDMI");
   });
   S.displays.forEach((d,j)=>{
     const m=model("disp_"+dmap[d.type]);
@@ -710,7 +719,7 @@ function diagram(){
   if(swNode && ports) swNode.sub=`${ports} ports${poe?` (${poe} PoE)`:""} · `+swNode.sub.replace(/^same switch: /,"");
 
   // ---- layout + draw ----
-  const H=y-30, W=Math.max(wideTx?1320:1180, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
+  const H=y-30, W=Math.max(wideTx||HB.inExt?1320:1180, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
   Object.values(N).forEach(n=>n.x=colX(n.col)+(n.xo!==undefined?n.xo:(bw-n.w)/2));
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), cy=n=>n.y+n.h/2;
   const ST={video:[D.acc,"",1.8],audio:[D.ok,"",1.8],control:[D.mute,"5 4",1.4],net:[D.acc2,"2 4",1.4],usb:[D.text,"7 3",1.2]};
