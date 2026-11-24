@@ -475,6 +475,8 @@ function items(){
   if(["Touch panel","Button keypad","Mobile / web UI"].includes(t)) add("proc","Control","Control processor","processor",1);
   if(S.control.scheduler) add("sched","Control","Scheduling panel","scheduler",1);
   if(S.control.occupancy) add("occ","Control","Occupancy sensor","occupancy",1);
+  if(!avoip && L.some(i=>["dsp","proc","vc","tp","kp","sched","cam","src_wireless"].includes(i.key)))
+    add("netsw","Network","Network switch (control / Dante / VC)","avoip_switch",1,"PoE+, AV VLAN; IGMP if Dante/AES67");
   add("rack","Infrastructure",S.infra.rackLoc+" rack / power","rack",1,S.infra.network);
   return L;
 }
@@ -513,48 +515,124 @@ function exportCSV(){
 }
 
 function diagram(){
-  const D=T();
-  const src=S.sources, dsp=S.displays, rowH=46, top=40;
-  const rows=Math.max(src.length,dsp.length,3);
-  const vidH=top+rows*rowH;
-  const audioOn = S.audio.mics.length || S.audio.speakers!=="Display speakers only";
-  const H=vidH+(audioOn?150:20)+(S.conf.platform!=="None"?0:0);
-  // Always landscape: width is at least 1.6× height (engineering sheet convention)
-  const W=Math.max(860, Math.ceil(H*1.6)), sx=20, bw=200, bh=32, dx=W-bw-20, cx=Math.round((W-180)/2);
-  const core=recommendCore().name;
-  let g=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:640px;font-family:system-ui,sans-serif;font-size:12px">
-  <rect width="${W}" height="${H}" fill="${D.field}"/>
-  <text x="${sx}" y="22" fill="${D.mute}">SOURCES</text><text x="${cx}" y="22" fill="${D.mute}">CORE</text><text x="${dx}" y="22" fill="${D.mute}">DISPLAYS</text>`;
-  const sy=i=>top+i*rowH, coreY=top, coreH=Math.max(bh,rows*rowH-14);
-  // lines
-  src.forEach((s,i)=>{ if(routed().some(r=>r[0]===s.id)) g+=`<path d="M${sx+bw} ${sy(i)+bh/2} C ${sx+bw+60} ${sy(i)+bh/2}, ${cx-60} ${coreY+coreH/2}, ${cx} ${coreY+coreH/2}" stroke="${D.acc}" fill="none" stroke-width="1.5"/>`; });
-  dsp.forEach((d,i)=>{ if(routed().some(r=>r[1]===d.id)){ const t=transport(d.dist); g+=`<path d="M${cx+180} ${coreY+coreH/2} C ${dx-60} ${coreY+coreH/2}, ${cx+240} ${sy(i)+bh/2}, ${dx} ${sy(i)+bh/2}" stroke="${D.acc}" fill="none" stroke-width="1.5"/>${t!=="?"?`<text x="${dx-8}" y="${sy(i)+bh/2-5}" text-anchor="end" fill="${D.acc2}" font-size="10">${t}</text>`:""}`; }});
-  src.forEach((s,i)=>g+=box(sx,sy(i),bw,bh,s.name,s.loc,D.panel,D.line));
-  if(core.startsWith("AV over IP")){ const e=pickOf({key:"enc",catKey:"avoip_enc"}), d=pickOf({key:"dec",catKey:"avoip_dec"});
-    src.forEach((s,i)=>{ if(routed().some(r=>r[0]===s.id)) g+=`<text x="${sx+bw+6}" y="${sy(i)+bh/2-5}" fill="${D.acc2}" font-size="10">ENC</text>`; });
-    dsp.forEach((x,i)=>{ if(routed().some(r=>r[1]===x.id)) g+=`<text x="${dx-8}" y="${sy(i)+bh/2+14}" text-anchor="end" fill="${D.acc2}" font-size="10">DEC</text>`; });
-    g+=`<text x="${cx}" y="${coreY+coreH+14}" fill="${D.mute}" font-size="10">${esc(e[0]+" "+e[1])} → ${esc(d[1])}</text>`; }
-  g+=box(cx,coreY,180,coreH,core,"",D.accbg,D.acc);
-  dsp.forEach((d,i)=>g+=box(dx,sy(i),bw,bh,d.name,`${d.type}${d.size?" · "+d.size+'"':""}`,D.panel,D.line));
-  if(audioOn){
-    const ay=vidH+40, dp=items().find(i=>i.key==="dsp"), ap=items().find(i=>i.key==="amp"), dspName=dp?pickOf(dp)[0]+" "+pickOf(dp)[1]:(needsDSP()||"Audio");
-    g+=`<text x="${sx}" y="${ay-12}" fill="${D.mute}">AUDIO</text>`;
-    const micLbl=S.audio.mics.map(m=>`${m.qty||1}× ${m.type}`).join(", ")||"Source audio";
-    g+=box(sx,ay,bw,bh,"Mics",micLbl,D.panel,D.line);
-    g+=box(cx,ay,180,bh,dspName,aecOn()?`AEC ${aecChannels()} ch · mix`:"mix",D.accbg,D.ok);
-    g+=box(dx,ay,bw,bh,"Speakers",`${S.audio.speakerCount||"?"}× ${S.audio.speakers}${ap?" · amp: "+pickOf(ap)[1]:""}`,D.panel,D.line);
-    g+=`<line x1="${sx+bw}" y1="${ay+bh/2}" x2="${cx}" y2="${ay+bh/2}" stroke="${D.ok}" stroke-width="1.5"/><line x1="${cx+180}" y1="${ay+bh/2}" x2="${dx}" y2="${ay+bh/2}" stroke="${D.ok}" stroke-width="1.5"/>`;
-    g+=`<line x1="${cx+90}" y1="${coreY+coreH}" x2="${cx+90}" y2="${ay}" stroke="${D.ok}" stroke-dasharray="4 3"/><text x="${cx+96}" y="${(coreY+coreH+ay)/2}" fill="${D.ok}" font-size="10">program audio</text>`;
-    if(S.conf.platform!=="None"){ const cy=ay+60; g+=box(cx,cy,180,bh,S.conf.platform.split(" (")[0],`${S.conf.cameras||0} camera(s)`,D.panel,D.acc2); g+=`<line x1="${cx+90}" y1="${ay+bh}" x2="${cx+90}" y2="${cy}" stroke="${D.acc2}" stroke-dasharray="4 3"/>`; }
+  const D=T(), IT=items(), has=k=>IT.find(i=>i.key===k);
+  const model=k=>{ const i=has(k); if(!i) return ""; const p=pickOf(i); return p?p[0]+" "+p[1]:""; };
+  const core=recommendCore().name, avoip=core.startsWith("AV over IP"), direct=core.startsWith("Direct");
+  const bw=200, bh=42, gap=58, N={}, E=[], secs=[];
+  const node=(id,col,y,title,sub,kind)=>{ N[id]={id,col,y,title,sub,kind}; return id; };
+  const edge=(a,b,k,l)=>{ if(a&&b) E.push({a,b,k,l}); };
+  const smap={"Room PC":"pc","Media player":"player","Digital signage player":"player","Cable / IPTV":"iptv","Document camera":"doccam","Wireless presentation":"wireless"};
+  const dmap={"Flat panel":"panel","Confidence monitor":"panel","Projector + screen":"projector","LED video wall":"led","Interactive display":"interactive"};
+  let y=62;
+
+  // ---- VIDEO ----
+  secs.push(["VIDEO",y-22]);
+  const nS=S.sources.length, nD=S.displays.length, rows=Math.max(nS,nD,1), rowY=i=>y+i*gap;
+  let coreId=null;
+  if(!direct){
+    const ck=avoip?"netsw":"core";
+    const title=avoip?"AV network switch":core.startsWith("Matrix")?"Matrix switcher":"Presentation switcher";
+    coreId=node("core",2,(rowY(0)+rowY(rows-1))/2,title,model(ck)||core,"core");
   }
+  const srcEnd={};
+  S.sources.forEach((s,i)=>{
+    const k=smap[s.type], m=k?model("src_"+k):"";
+    let sub=m||s.type.split(" (")[0]; if(s.loc==="Table" && has("tbox")) sub+=" · via "+pickOf(has("tbox"))[1];
+    let last=node("s"+i,0,rowY(i),s.name,sub,"src");
+    const r=routed().some(x=>x[0]===s.id);
+    if(avoip && r){ const t=node("enc"+i,1,rowY(i),"Encoder",model("enc"),"ep"); edge(last,t,"video","HDMI"); last=t; }
+    else if(!avoip && has("srctx") && ["Table","Lectern","Wall plate"].includes(s.loc)){ const t=node("tx"+i,1,rowY(i),"HDBaseT transmitter",model("srctx"),"ep"); edge(last,t,"video","HDMI"); last=t; }
+    srcEnd[s.id]=last;
+    if(coreId && r) edge(last,coreId,"video",avoip?"1 GbE":"");
+  });
+  S.displays.forEach((d,j)=>{
+    const m=model("disp_"+dmap[d.type]);
+    const id=node("d"+j,4,rowY(j),d.name+(d.size?` · ${d.size}"`:""),m||d.type,"dsp");
+    const r=routed().some(x=>x[1]===d.id); let first=id;
+    if(avoip && r){ first=node("dec"+j,3,rowY(j),"Decoder",model("dec"),"ep"); edge(first,id,"video","HDMI"); }
+    else if(!avoip && transport(d.dist)==="HDBaseT" && has("hdrx")){ first=node("rx"+j,3,rowY(j),"HDBaseT receiver",model("hdrx"),"ep"); edge(first,id,"video","HDMI"); }
+    if(coreId && r) edge(coreId,first,"video",avoip?"1 GbE":transport(d.dist)==="HDBaseT"?"HDBaseT":"HDMI");
+    else if(direct) routed().filter(x=>x[1]===d.id).forEach(x=>edge(srcEnd[x[0]],first,"video",transport(d.dist)));
+  });
+  y=rowY(rows-1)+bh+70;
+
+  // generic banded section: cols = array of 5 arrays of {id,title,sub,kind}
+  const band=(label,cols)=>{
+    const n=Math.max(...cols.map(c=>c.length)); if(!n) return false;
+    secs.push([label,y-22]);
+    cols.forEach((c,ci)=>c.forEach((o,k)=>node(o.id,ci,y+((n-c.length)/2+k)*gap,o.title,o.sub,o.kind)));
+    y+= (n-1)*gap+bh+70; return true;
+  };
+
+  // ---- AUDIO & CONFERENCING ----
+  const A=[[],[],[],[],[]];
+  S.audio.mics.forEach((m,i)=>A[0].push({id:"mic"+i,title:`Mic ×${m.qty||1} · ${m.type}`,sub:model("mic"+i),kind:"aud"}));
+  if(has("cam")) A[0].push({id:"cam",title:`Camera ×${has("cam").qty}`,sub:model("cam"),kind:"conf"});
+  if(has("vc")) A[1].push({id:"vc",title:S.conf.platform.split(" (")[0],sub:model("vc"),kind:"conf"});
+  if(has("usb")) A[1].push({id:"usb",title:"USB bridge",sub:model("usb"),kind:"conf"});
+  if(has("dsp")) A[2].push({id:"dspx",title:aecOn()?`DSP · AEC ${aecChannels()} ch`:"DSP",sub:model("dsp"),kind:"aud"});
+  if(has("amp")) A[3].push({id:"amp",title:`Amplifier ×${has("amp").qty}`,sub:model("amp"),kind:"aud"});
+  if(has("spk")) A[4].push({id:"spk",title:`Speakers ×${has("spk").qty}`,sub:model("spk"),kind:"aud"});
+  if(has("ald")) A[4].push({id:"ald",title:"Assistive listening",sub:model("ald"),kind:"aud"});
+  band("AUDIO & CONFERENCING",A);
+  const dspId=N.dspx?"dspx":null;
+  S.audio.mics.forEach((m,i)=>edge("mic"+i,dspId||(N.vc?"vc":null),"audio",/Wireless/.test(m.type)?"RF rx":"Dante/analog"));
+  if(N.cam) edge("cam",N.vc?"vc":N.usb?"usb":null,"usb","USB/IP");
+  if(N.usb && dspId) edge("usb",dspId,"usb","USB audio");
+  if(N.vc && dspId) edge("vc",dspId,"audio","USB/Dante");
+  if(N.vc && coreId) edge("vc",coreId,"video","HDMI");
+  if(dspId && coreId && S.audio.program) edge(coreId,dspId,"audio","program audio");
+  if(dspId) edge(dspId,N.amp?"amp":N.spk?"spk":null,"audio","");
+  if(N.amp) edge("amp","spk","audio",S.audio.speakers==="Line array / PA"?"low-Z":"70 V");
+  if(dspId && N.ald) edge(dspId,"ald","audio","");
+
+  // ---- CONTROL & NETWORK ----
+  const C=[[],[],[],[],[]];
+  if(has("tp")) C[0].push({id:"tp",title:`Touch panel ×${has("tp").qty}`,sub:model("tp"),kind:"ctl"});
+  if(has("kp")) C[0].push({id:"kp",title:`Keypad ×${has("kp").qty}`,sub:model("kp"),kind:"ctl"});
+  if(has("sched")) C[0].push({id:"sched",title:"Scheduling panel",sub:model("sched"),kind:"ctl"});
+  if(has("occ")) C[1].push({id:"occ",title:"Occupancy sensor",sub:model("occ"),kind:"ctl"});
+  if(has("proc")) C[2].push({id:"proc",title:"Control processor",sub:model("proc"),kind:"ctl"});
+  if(has("netsw")) C[3].push({id:"net",title:avoip?"Network · control/Dante VLAN":"Network switch",sub:avoip?"same switch: "+model("netsw"):model("netsw"),kind:"net"});
+  C[4].push({id:"rack",title:S.infra.rackLoc+" rack",sub:model("rack")+(S.infra.network?" · "+S.infra.network:""),kind:"ctl"});
+  band("CONTROL & NETWORK",C);
+  const netId=N.net?"net":null;
+  ["tp","kp"].forEach(k=>edge(k,N.proc?"proc":null,"control",""));
+  edge("occ",N.proc?"proc":null,"control","contact");
+  if(N.proc){ if(coreId) edge("proc",coreId,"control","IP/RS-232"); if(dspId) edge("proc",dspId,"control","IP"); if(N.vc) edge("proc","vc","control","IP"); }
+  if(netId) ["dspx","vc","proc","tp","sched","cam"].forEach(k=>{ if(N[k] && k!==netId) edge(k,netId,"net",""); });
+
+  // ---- layout + draw ----
+  const H=y-30, W=Math.max(1120, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
+  Object.values(N).forEach(n=>n.x=colX(n.col));
+  const ST={video:[D.acc,"",1.8],audio:[D.ok,"",1.8],control:[D.mute,"5 4",1.4],net:[D.acc2,"2 4",1.4],usb:[D.text,"7 3",1.2]};
+  const KS={src:D.line,dsp:D.line,ep:D.acc,core:D.acc,aud:D.ok,conf:D.acc2,ctl:D.mute,net:D.acc2};
+  let g=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:760px;font-family:system-ui,sans-serif;font-size:12px"><rect width="${W}" height="${H}" fill="${D.field}"/>`;
+  secs.forEach(([t,sy],i)=>{ if(i) g+=`<line x1="20" y1="${sy-18}" x2="${W-20}" y2="${sy-18}" stroke="${D.line}"/>`; g+=`<text x="20" y="${sy}" fill="${D.mute}" font-size="11" letter-spacing="1.5">${t}</text>`; });
+  // legend
+  const LG=[["Video","video"],["Audio","audio"],["Control","control"],["Network","net"],["USB","usb"]];
+  LG.forEach(([t,k],i)=>{ const lx=W-20-(LG.length-i)*88, [c,da]=ST[k]; g+=`<line x1="${lx}" y1="16" x2="${lx+22}" y2="16" stroke="${c}" stroke-width="2" ${da?`stroke-dasharray="${da}"`:""}/><text x="${lx+27}" y="20" fill="${D.mute}" font-size="10">${t}</text>`; });
+  E.forEach(e=>{
+    const A1=N[e.a], B1=N[e.b]; if(!A1||!B1) return;
+    const [c,da,w]=ST[e.k]; let x1,y1,x2,y2,p;
+    if(A1.col===B1.col){
+      const dn=A1.y<B1.y; x1=x2=A1.x+bw/2+(e.k==="video"?-30:e.k==="audio"?30:0);
+      y1=dn?A1.y+bh:A1.y; y2=dn?B1.y:B1.y+bh; p=`M${x1} ${y1} L${x2} ${y2}`;
+    } else {
+      const fwd=A1.col<B1.col; x1=fwd?A1.x+bw:A1.x; x2=fwd?B1.x:B1.x+bw; y1=A1.y+bh/2; y2=B1.y+bh/2;
+      const mx=(x1+x2)/2; p=`M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+    }
+    g+=`<path d="${p}" fill="none" stroke="${c}" stroke-width="${w}" ${da?`stroke-dasharray="${da}"`:""} opacity=".9"/>`;
+    if(e.l) g+=`<text x="${(x1+x2)/2}" y="${(y1+y2)/2-4}" text-anchor="middle" fill="${c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(e.l)}</text>`;
+  });
+  Object.values(N).forEach(n=>g+=box(n.x,n.y,bw,bh,n.title,n.sub,n.kind==="core"?D.accbg:D.panel,KS[n.kind]||D.line,n.kind==="core"));
   return g+"</svg>";
 }
-function box(x,y,w,h,t,sub,fill,stroke){
-  const D=T();
-  const cut=(s,n)=>{s=String(s||"");return s.length>n?s.slice(0,n-1)+"…":s};
-  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${fill}" stroke="${stroke}"/>
-  <text x="${x+10}" y="${y+(sub?14:h/2+4)}" fill="${D.text}" font-weight="600">${esc(cut(t,28))}</text>
-  ${sub?`<text x="${x+10}" y="${y+26}" fill="${D.mute}" font-size="10">${esc(cut(sub,34))}</text>`:""}`;
+function box(x,y,w,h,t,sub,fill,stroke,bold){
+  const D=T(), cut=(s,n)=>{s=String(s||"");return s.length>n?s.slice(0,n-1)+"…":s};
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="${bold?2:1.2}"/>
+  <text x="${x+10}" y="${y+(sub?17:h/2+4)}" fill="${D.text}" font-weight="600">${esc(cut(t,28))}</text>
+  ${sub?`<text x="${x+10}" y="${y+33}" fill="${D.mute}" font-size="10.5">${esc(cut(sub,33))}</text>`:""}`;
 }
 
 // ---------- Render / IO ----------
