@@ -389,7 +389,7 @@ Sketch(){
   <div class="diagram">${diagram()}</div><div class="hint noprint">Swipe the diagram sideways to see all of it →</div>
   <h3 style="font-size:1rem">Equipment sketch</h3>${bom()}
   <h3 style="font-size:1rem">Open items</h3>${(checks().map(n=>`<div class="note warn">${n}</div>`).join(""))||'<div class="note">No open flags.</div>'}
-  <div class="noprint" style="margin-top:1rem"><button class="pri" onclick="savePDF(this)">Save PDF</button> <button onclick="savePNG(this)">Save PNG</button> <button onclick="exportDrawio()">Download .drawio</button> <button onclick="downloadSVG()">Download SVG</button></div>`;
+  <div class="noprint" style="margin-top:1rem"><button class="pri" onclick="savePDF(this)">Download PDF</button> <button onclick="savePNG(this)">Download PNG</button> <button onclick="exportDrawio()">Download .drawio</button> <button onclick="downloadSVG()">Download SVG</button></div>`;
 }};
 
 // ---------- Logic ----------
@@ -887,13 +887,19 @@ function render(animate){
   document.getElementById("navbar").innerHTML =
     `<button class="back" onclick="go(${step-1})" ${step===0?"disabled":""} aria-label="Back">←</button>`+
     (step<last ? `<button class="pri" onclick="go(${step+1})">Next: ${STEPS[step+1]} →</button>`
-               : `<button class="pri" onclick="savePDF(this)">Save PDF</button>`);
+               : `<button class="pri" onclick="savePDF(this)">Download PDF</button>`);
 }
 function go(i){ if(i<0||i>=STEPS.length) return; S.visited=[...new Set([...(S.visited||[]),step])]; save(); step=i; render(true); window.scrollTo(0,0); }
 function exportJSON(){ dl(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}),(S.project.name||"av-design")+".json"); }
+// Only the iPhone/iPad home-screen app can't download files; everywhere else just download.
+function needsShareSheet(){
+  const iOS=/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  const standalone=navigator.standalone===true || matchMedia("(display-mode: standalone)").matches;
+  return iOS && standalone;
+}
 function fileBase(){ return (S.project.name||"av-design").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-")||"av-design"; }
 async function shareOrDownload(blob,name){
-  try{ const f=new File([blob],name,{type:blob.type}); if(navigator.canShare && navigator.canShare({files:[f]}) && matchMedia("(display-mode: standalone)").matches){ await navigator.share({files:[f],title:name}); return; } }catch(e){ if(e.name==="AbortError") return; }
+  try{ const f=new File([blob],name,{type:blob.type}); if(needsShareSheet() && navigator.canShare && navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:name}); return; } }catch(e){ if(e.name==="AbortError") return; }
   dl(blob,name);
 }
 // Diagram with fixed pixel size (Safari can't rasterize width="100%" SVGs) and optional transparent background
@@ -1050,7 +1056,7 @@ async function buildPDFBlob(){
 async function deliverPDF(blob,ext="pdf",type="application/pdf"){
   const name=fileBase()+"."+ext;
   const file=new File([blob],name,{type});
-  if(navigator.canShare && navigator.canShare({files:[file]})){
+  if(needsShareSheet() && navigator.canShare && navigator.canShare({files:[file]})){
     try{ await navigator.share({files:[file],title:name}); return true; }
     catch(e){ if(e.name==="AbortError") return true; if(e.name==="NotAllowedError") return file; }
   }
