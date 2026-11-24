@@ -695,8 +695,8 @@ function zoneLayout(N,E,o){
     let top=ys.length?Math.min(...ys.map(n=>n.y)):floor, bot=ys.length?Math.max(...ys.map(n=>n.y+nh(n))):floor+100;
     top=Math.max(top-6,floor); const h=Math.max(100,bot-top+6); N[k].y=top; N[k].h=h; floor=top+h+38; });
   // columns → x
-  const CWD=[200,125,165,120,165,140,200], G=[52,58,54,54,58,52];
-  [1,2,4,5].forEach(c=>{ if(!Object.values(N).some(n=>n.col===c)){ CWD[c]=0; G[c<3?c:c-1]=0; } }); // collapse empty columns
+  const CWD=[200,125,165,120,165,140,200], G=[52,58,72,72,58,52];
+  [1,2,4,5].forEach(c=>{ if(!Object.values(N).some(n=>n.col===c)){ CWD[c]=0; G[c<3?c-1:c]=0; } }); // collapse empty columns, keeping the gap beside the core
   const base=40+CWD.reduce((a,b)=>a+b)+G.reduce((a,b)=>a+b)+32;
   const ids=Object.keys(N); let maxY=Math.max(yL,yR,...ids.map(k=>N[k].y+nh(N[k])+30));
   const H=maxY+10, W=Math.max(base,Math.ceil(H*1.6)), extra=(W-base)/G.length;
@@ -809,7 +809,7 @@ function diagram(){
   if(has("sched")) C[0].push({id:"sched",title:"Scheduling panel",sub:model("sched"),kind:"ctl"});
   if(has("occ")) C[1].push({id:"occ",title:"Occupancy sensor",sub:model("occ"),kind:"ctl"});
   if(has("proc")) C[2].push({id:"proc",title:"Control processor",sub:model("proc"),kind:"ctl"});
-  if(has("netsw")) C[2].push({id:"net",title:avoip?"Network · control/Dante VLAN":"Network switch",sub:avoip?"same switch: "+model("netsw"):model("netsw"),kind:"net"});
+  if(has("netsw")) C[2].push({id:"net",title:"Network switch",sub:model("netsw"),kind:"net"});
   C[4].push({id:"rack",title:S.infra.rackLoc+" rack",sub:model("rack")+(S.infra.network?" · "+S.infra.network:""),kind:"ctl"});
   band("CONTROL & NETWORK",C);
   const X=[[],[],[],[],[]];
@@ -832,7 +832,7 @@ function diagram(){
   const swEdges=E.filter(e=>(e.b===netId&&e.k==="net") || (avoip&&e.k==="video"&&(e.a===coreId||e.b===coreId)&&e.l==="1 GbE"));
 
   if(avoip && coreId) N[coreId].title="NSW-1 · AV network switch";
-  if(N.net) N.net.title=(avoip?"NSW-1 · control/Dante VLAN":"NSW-1 · network switch");
+  if(N.net && !avoip) N.net.title="NSW-1 · network switch";
   const swNode=avoip?N[coreId]:N.net;
   // number the switch ports in a stable order: AVoIP endpoints first, then everything on the control/Dante side
   const devName=id=>{ let m; if((m=id.match(/^enc(\d+)$/))) return "Encoder · "+(S.sources[+m[1]]||{}).name; if((m=id.match(/^dec(\d+)$/))) return "Decoder · "+(S.displays[+m[1]]||{}).name;
@@ -847,6 +847,10 @@ function diagram(){
     for(let u=0;u<q;u++) LAST_PORTS.push({p:first+u,dev,name:q>1?`${base} ${u+1}`:base,type:e.k==="video"?"1 GbE":(e.l||"LAN")}); });
   const ports=LAST_PORTS.length, poe=LAST_PORTS.filter(p=>/PoE/.test(p.type)||/^(enc|dec)/.test(p.dev)).length;
   if(swNode && ports) swNode.sub=`${ports} ports${poe?` (${poe} PoE)`:""} · `+swNode.sub.replace(/^same switch: /,"");
+  // AV over IP: one physical switch, one box — fold the control/Dante side into the AV switch block
+  if(avoip && coreId && N.net){ E.forEach(e=>{ if(e.a==="net") e.a=coreId; if(e.b==="net") e.b=coreId; });
+    for(let i=E.length-1;i>=0;i--) if(E[i].a===E[i].b) E.splice(i,1); delete N.net; }
+  const SWID=avoip?coreId:"net";
 
   // ---- layout + draw ----
   const {W,H,zones}=zoneLayout(N,E,{bh,gap,avoip,coreId});
@@ -868,7 +872,7 @@ function diagram(){
   const R=[];
   E.forEach(e=>{
     const A=N[e.a], B=N[e.b]; if(!A||!B) return;
-    if(netTags && e.k==="net" && e.b==="net"){ (tags[e.a]=tags[e.a]||[]).push((e.l||"LAN")+" → NSW-1"+(e.port?" P"+e.port:"")); return; }
+    if(netTags && e.k==="net" && e.b===SWID){ (tags[e.a]=tags[e.a]||[]).push((e.l||"LAN")+" → NSW-1"+(e.port?" P"+e.port:"")); return; }
     let mode="h";
     if(A.col===B.col && A.xo===B.xo){ const lo=Math.min(A.y,B.y), hi=Math.max(A.y,B.y);
       mode=Object.values(N).some(n=>n.col===A.col && n!==A && n!==B && n.y>lo && n.y<hi)?"br":"v"; }
