@@ -112,6 +112,10 @@ main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
   .grid>div:has(textarea){grid-column:1/-1}
   table{font-size:.82rem}
 }
+.cust{display:grid;grid-template-columns:1fr 1fr;gap:.35rem;margin:.35rem 0}
+.itm>input,.nt>input{margin-top:.35rem}
+.bom input{min-height:38px;font-size:16px;padding:.35rem .5rem}
+.xrow td{vertical-align:top}
 .hint{display:none;font-size:.78rem;color:var(--mute);margin:.3rem 0 0}
 .bom select{min-height:36px;font-size:15px;margin:.3rem 0 .1rem}
 @media (max-width:600px){
@@ -213,7 +217,7 @@ const blank = () => ({
   conf:{farEnd:false,usbBridge:false},
   control:{type:"Touch panel",panels:1,scheduler:false,lighting:false,shades:false,occupancy:false,notes:""},
   infra:{maxRun:"",rackLoc:"Credenza",network:"Shared corporate",power:"",notes:"",eco:"auto"},
-  picks:{}
+  picks:{}, custom:{}, extras:[]
 });
 
 function uid(){ return Math.random().toString(36).slice(2,8); }
@@ -249,7 +253,7 @@ document.addEventListener("input", e => {
   setPath(k, v);
   if(e.target.dataset.rerender) render();
 });
-document.addEventListener("change", e => { if(e.target.dataset.rerender) render(); });
+document.addEventListener("change", e => { if(e.target.dataset.rerender || e.target.dataset.rc) render(); });
 
 function field(label, k, val, type="text", extra=""){
   const im = type==="number" ? 'inputmode="decimal"' : "";
@@ -498,8 +502,9 @@ function items(){
   if(S.control.scheduler) add("sched","Control","Scheduling panel","scheduler",1);
   if(S.control.occupancy) add("occ","Control","Occupancy sensor","occupancy",1);
   if(!avoip && L.some(i=>["dsp","proc","tp","kp","sched","src_wireless"].includes(i.key) || i.key.startsWith("cam_")))
-    add("netsw","Network","Network switch (control / Dante / VC)","avoip_switch",1,"PoE+, AV VLAN; IGMP if Dante/AES67");
+    add("netsw","Network","Network switch (control / Dante / IP cameras)","avoip_switch",1,"PoE+, AV VLAN; IGMP if Dante/AES67");
   add("rack","Infrastructure",S.infra.rackLoc+" rack / power","rack",1,S.infra.network);
+  (S.extras||[]).forEach(x=>L.push({key:"x_"+x.id,cat:x.cat||"Other",role:x.role||"Custom item",catKey:"",qty:+x.qty||1,note:x.note||"",extra:x}));
   return L;
 }
 function ampSize(n){
@@ -515,17 +520,34 @@ function choices(catKey){
   return [...pref,...rest];
 }
 function aecCapText(model){ const c=AEC_CAP[model]; return c==="sw"?"software AEC (scales with licensing)":c?c+"-ch AEC":"no AEC listed"; }
-function pickOf(it){ const ch=choices(it.catKey); const saved=S.picks[it.key]; return ch.find(p=>p[0]+" "+p[1]===saved)||ch[0]; }
-function setPick(k,v){ S.picks[k]=v; save(); render(); }
+const CUSTOM="__custom__";
+function pickOf(it){
+  if(it.extra) return [it.extra.brand||"",it.extra.model||"",it.extra.desc||"","*"];
+  const saved=S.picks[it.key];
+  if(saved===CUSTOM){ const c=(S.custom||{})[it.key]||{}; return [c.brand||"Custom",c.model||"",c.desc||"","*"]; }
+  const ch=choices(it.catKey); return ch.find(p=>p[0]+" "+p[1]===saved)||ch[0];
+}
+function setPick(k,v){ S.picks[k]=v; if(v===CUSTOM){ S.custom=S.custom||{}; S.custom[k]=S.custom[k]||{brand:"",model:"",desc:""}; } save(); render(); }
+function addExtra(){ S.extras=S.extras||[]; S.extras.push({id:uid(),cat:"Other",role:"",brand:"",model:"",desc:"",qty:1,note:""}); save(); render();
+  setTimeout(()=>{ const el=document.querySelectorAll(".extra-role"); el.length&&el[el.length-1].focus(); },50); }
+function delExtra(id){ S.extras=S.extras.filter(x=>x.id!==id); save(); render(); }
 
 function bom(){
+  const CATS=["Display","Video","Source","Audio","Cameras","Control","Network","Infrastructure","Other"];
   const rows=items().map(it=>{
-    const ch=choices(it.catKey), p=pickOf(it);
-    const sel=ch.length?`<select class="noprint-sel" onchange="setPick('${it.key}',this.value)">${ch.map(c=>{const v=c[0]+" "+c[1];return `<option ${p&&v===p[0]+" "+p[1]?"selected":""}>${esc(v)}</option>`}).join("")}</select>`:"";
-    return `<tr><td class="cat">${it.cat}</td><td class="itm"><b>${esc(it.role)}</b><br>${sel}<div class="q" style="margin:0;font-size:.78rem">${p?esc(p[2]):""}${p&&it.key==="dsp"?" · <b>"+aecCapText(p[1])+"</b>":""}</div></td><td class="c qty">×${it.qty}</td><td class="nt">${esc(it.note)}</td></tr>`;
+    if(it.extra){ const x=it.extra, i=S.extras.indexOf(x), f=(k,ph,cls="")=>`<input class="${cls}" placeholder="${ph}" data-k="extras.${i}.${k}" data-rc="1" value="${esc(x[k])}">`;
+      return `<tr class="xrow"><td class="cat"><select data-k="extras.${i}.cat" data-rc="1">${opts(CATS,x.cat)}</select></td>
+      <td class="itm">${f("role","Item (e.g. Rack fan)","extra-role")}<div class="cust">${f("brand","Brand")}${f("model","Model")}</div>${f("desc","Description (optional)")}</td>
+      <td class="c qty"><input type="number" inputmode="decimal" min="1" data-k="extras.${i}.qty" data-rc="1" value="${esc(x.qty)}" style="width:4.5rem;text-align:center"></td>
+      <td class="nt">${f("note","Notes")}<button class="sm noprint" onclick="delExtra('${x.id}')" style="margin-top:.3rem">Remove</button></td></tr>`; }
+    const ch=choices(it.catKey), p=pickOf(it), isC=S.picks[it.key]===CUSTOM;
+    const sel=ch.length?`<select class="noprint-sel" onchange="setPick('${it.key}',this.value)">${ch.map(c=>{const v=c[0]+" "+c[1];return `<option ${!isC&&p&&v===p[0]+" "+p[1]?"selected":""}>${esc(v)}</option>`}).join("")}<option value="${CUSTOM}" ${isC?"selected":""}>Custom…</option></select>`:"";
+    const cust=isC?`<div class="cust"><input placeholder="Brand" data-k="custom.${it.key}.brand" data-rc="1" value="${esc(S.custom[it.key].brand)}"><input placeholder="Model" data-k="custom.${it.key}.model" data-rc="1" value="${esc(S.custom[it.key].model)}"></div><input placeholder="Description (optional)" data-k="custom.${it.key}.desc" data-rc="1" value="${esc(S.custom[it.key].desc)}">`:"";
+    return `<tr><td class="cat">${it.cat}</td><td class="itm"><b>${esc(it.role)}</b><br>${sel}${cust}<div class="q" style="margin:0;font-size:.78rem">${p&&!isC?esc(p[2]):""}${p&&it.key==="dsp"?(isC?"":" · ")+"<b>"+(isC?"AEC capacity: confirm on spec sheet":aecCapText(p[1]))+"</b>":""}</div></td><td class="c qty">×${it.qty}</td><td class="nt">${esc(it.note)}</td></tr>`;
   }).join("");
   return `<div class="noprint" style="margin-bottom:.4rem;font-size:.85rem;color:var(--mute)">Ecosystem: <select style="width:auto" onchange="S.infra.eco=this.value;save();render()">${Object.entries(ECOS).map(([k,v])=>`<option value="${k}" ${S.infra.eco==k?"selected":""}>${v}</option>`).join("")}</select> · pick a model on any line</div>
   <div style="overflow-x:auto"><table class="bom"><tr class="hd"><th>Category</th><th>Item / model</th><th class="c">Qty</th><th>Notes</th></tr>${rows}</table></div>
+  <div class="addrow noprint"><button onclick="addExtra()">＋ Add custom item</button></div>
   <div class="noprint" style="margin-top:.5rem"><button onclick="exportCSV()">Download BOM (CSV)</button></div>
   <p class="q" style="font-size:.78rem">Models are starting points — confirm current part numbers, compatibility and lead times with your distributor.</p>`;
 }
@@ -624,6 +646,9 @@ function diagram(){
   if(has("netsw")) C[3].push({id:"net",title:avoip?"Network · control/Dante VLAN":"Network switch",sub:avoip?"same switch: "+model("netsw"):model("netsw"),kind:"net"});
   C[4].push({id:"rack",title:S.infra.rackLoc+" rack",sub:model("rack")+(S.infra.network?" · "+S.infra.network:""),kind:"ctl"});
   band("CONTROL & NETWORK",C);
+  const X=[[],[],[],[],[]];
+  (S.extras||[]).forEach((x,i)=>X[i%5].push({id:"x_"+x.id,title:(x.role||"Custom item")+((+x.qty||1)>1?" ×"+x.qty:""),sub:[x.brand,x.model].filter(Boolean).join(" "),kind:"ctl"}));
+  band("OTHER EQUIPMENT",X);
   const netId=N.net?"net":null;
   ["tp","kp"].forEach(k=>edge(k,N.proc?"proc":null,"control",""));
   edge("occ",N.proc?"proc":null,"control","contact");
