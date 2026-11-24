@@ -348,7 +348,7 @@ Sketch(){
   <div class="diagram">${diagram()}</div><div class="hint noprint">Swipe the diagram sideways to see all of it →</div>
   <h3 style="font-size:1rem">Equipment sketch</h3>${bom()}
   <h3 style="font-size:1rem">Open items</h3>${(checks().map(n=>`<div class="note warn">${n}</div>`).join(""))||'<div class="note">No open flags.</div>'}
-  <div class="noprint" style="margin-top:1rem"><button class="pri" onclick="savePDF(this)">Save PDF</button> <button onclick="downloadSVG()">Download diagram (SVG)</button></div>`;
+  <div class="noprint" style="margin-top:1rem"><button class="pri" onclick="savePDF(this)">Save PDF</button> <button onclick="exportDrawio()">Download .drawio</button> <button onclick="downloadSVG()">Download SVG</button></div>`;
 }};
 
 // ---------- Logic ----------
@@ -514,6 +514,7 @@ function exportCSV(){
   dl(new Blob([lines.join("\n")],{type:"text/csv"}),(S.project.name||"av-design")+"-bom.csv");
 }
 
+let LAST_LAYOUT=null;
 function diagram(){
   const D=T(), IT=items(), has=k=>IT.find(i=>i.key===k);
   const model=k=>{ const i=has(k); if(!i) return ""; const p=pickOf(i); return p?p[0]+" "+p[1]:""; };
@@ -626,6 +627,7 @@ function diagram(){
     if(e.l) g+=`<text x="${(x1+x2)/2}" y="${(y1+y2)/2-4}" text-anchor="middle" fill="${c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(e.l)}</text>`;
   });
   Object.values(N).forEach(n=>g+=box(n.x,n.y,bw,bh,n.title,n.sub,n.kind==="core"?D.accbg:D.panel,KS[n.kind]||D.line,n.kind==="core"));
+  LAST_LAYOUT={N,E,W,H,secs,bw,bh};
   return g+"</svg>";
 }
 function box(x,y,w,h,t,sub,fill,stroke,bold){
@@ -663,7 +665,60 @@ function render(animate){
 }
 function go(i){ if(i<0||i>=STEPS.length) return; S.visited=[...new Set([...(S.visited||[]),step])]; save(); step=i; render(true); window.scrollTo(0,0); }
 function exportJSON(){ dl(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}),(S.project.name||"av-design")+".json"); }
-function downloadSVG(){ dl(new Blob([diagram()],{type:"image/svg+xml"}),(S.project.name||"av-design")+".svg"); }
+function fileBase(){ return (S.project.name||"av-design").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-")||"av-design"; }
+async function shareOrDownload(blob,name){
+  try{ const f=new File([blob],name,{type:blob.type}); if(navigator.canShare && navigator.canShare({files:[f]}) && matchMedia("(display-mode: standalone)").matches){ await navigator.share({files:[f],title:name}); return; } }catch(e){ if(e.name==="AbortError") return; }
+  dl(blob,name);
+}
+function downloadSVG(){ shareOrDownload(new Blob([diagram()],{type:"image/svg+xml"}),fileBase()+".svg"); }
+
+// ---------- draw.io export (editable: shapes + attached connectors, print-friendly colors) ----------
+function exportDrawio(){
+  diagram(); const L=LAST_LAYOUT; if(!L) return;
+  const x=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const KS={src:"#5b6875",dsp:"#5b6875",ep:"#0a6cff",core:"#0a6cff",aud:"#15803d",conf:"#c96a00",ctl:"#5b6875",net:"#c96a00"};
+  const ES={video:["#0a6cff",0,""],audio:["#15803d",0,""],control:["#5b6875",1,"6 4"],net:["#c96a00",1,"2 3"],usb:["#7c3aed",1,"8 3"]};
+  const cells=['<mxCell id="0"/>','<mxCell id="1" parent="0"/>'];
+  let n=0; const id=p=>p+(++n);
+  // title + section labels
+  cells.push(`<mxCell id="${id("t")}" value="${x("<b>"+(S.project.name||"Untitled design")+"</b> — signal flow")}" style="text;html=1;fontSize=18;align=left;verticalAlign=top;" vertex="1" parent="1"><mxGeometry x="20" y="-40" width="600" height="30" as="geometry"/></mxCell>`);
+  L.secs.forEach(([t,sy],i)=>{
+    if(i) cells.push(`<mxCell id="${id("sep")}" value="" style="endArrow=none;html=1;strokeColor=#d3dae2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="20" y="${sy-18}" as="sourcePoint"/><mxPoint x="${L.W-20}" y="${sy-18}" as="targetPoint"/></mxGeometry></mxCell>`);
+    cells.push(`<mxCell id="${id("sec")}" value="${x(t)}" style="text;html=1;fontSize=11;fontColor=#5b6875;align=left;verticalAlign=bottom;" vertex="1" parent="1"><mxGeometry x="20" y="${sy-16}" width="300" height="20" as="geometry"/></mxCell>`);
+  });
+  // devices
+  const vid={};
+  Object.values(L.N).forEach(nd=>{
+    vid[nd.id]="n_"+nd.id;
+    const val=`<b>${x(nd.title)}</b>`+(nd.sub?`<br><font style="font-size:10px" color="#5b6875">${x(nd.sub)}</font>`:"");
+    const st=`rounded=1;arcSize=12;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=12;fillColor=${nd.kind==="core"?"#e8f2ff":"#ffffff"};strokeColor=${KS[nd.kind]||"#5b6875"};strokeWidth=${nd.kind==="core"?2:1.2};fontColor=#111820;`;
+    cells.push(`<mxCell id="${vid[nd.id]}" value="${x(val)}" style="${st}" vertex="1" parent="1"><mxGeometry x="${Math.round(nd.x)}" y="${Math.round(nd.y)}" width="${L.bw}" height="${L.bh}" as="geometry"/></mxCell>`);
+  });
+  // connections, attached to devices so they follow when moved
+  L.E.forEach(e=>{
+    if(!vid[e.a]||!vid[e.b]) return;
+    const [c,d,dp]=ES[e.k]||ES.video;
+    const st=`edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;endSize=5;strokeColor=${c};strokeWidth=1.5;fontColor=${c};fontSize=9;labelBackgroundColor=#ffffff;${d?`dashed=1;dashPattern=${dp};`:""}`;
+    cells.push(`<mxCell id="${id("e")}" value="${x(e.l||"")}" style="${st}" edge="1" parent="1" source="${vid[e.a]}" target="${vid[e.b]}"><mxGeometry relative="1" as="geometry"/></mxCell>`);
+  });
+  // legend
+  Object.entries({Video:"video",Audio:"audio",Control:"control",Network:"net",USB:"usb"}).forEach(([t,k],i)=>{
+    const [c,d,dp]=ES[k], lx=L.W-20-(5-i)*95;
+    cells.push(`<mxCell id="${id("lg")}" value="${t}" style="endArrow=none;html=1;strokeColor=${c};strokeWidth=2;fontSize=10;fontColor=#5b6875;labelPosition=right;align=left;${d?`dashed=1;dashPattern=${dp};`:""}" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="${lx}" y="16" as="sourcePoint"/><mxPoint x="${lx+24}" y="16" as="targetPoint"/><mxPoint x="14" y="0" as="offset"/></mxGeometry></mxCell>`);
+  });
+  const now=new Date().toISOString();
+  const xml=`<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="AV Design Sketch" modified="${now}" type="device">
+  <diagram id="signal-flow" name="Signal Flow">
+    <mxGraphModel dx="${L.W}" dy="${L.H}" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1100" landscape="1" math="0" shadow="0" background="#ffffff">
+      <root>
+        ${cells.join("\n        ")}
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>`;
+  shareOrDownload(new Blob([xml],{type:"application/vnd.jgraph.mxfile"}),fileBase()+".drawio");
+}
 function dl(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.rel="noopener"; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},4000); }
 
 // ---------- PDF (built in-page; works in iOS home-screen mode where window.print() is unavailable) ----------
