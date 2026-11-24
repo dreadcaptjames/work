@@ -574,7 +574,7 @@ function diagram(){
   const D=T(), IT=items(), has=k=>IT.find(i=>i.key===k);
   const model=k=>{ const i=has(k); if(!i) return ""; const p=pickOf(i); return p?p[0]+" "+p[1]:""; };
   const core=recommendCore().name, avoip=core.startsWith("AV over IP"), direct=core.startsWith("Direct");
-  const bw=200, bh=42, gap=58, CW=290, N={}, E=[], secs=[];
+  const bw=200, bh=42, gap=58, CW=220, N={}, E=[], secs=[];
   const node=(id,col,y,title,sub,kind,h)=>{ N[id]={id,col,y,title,sub,kind,w:col===2?CW:bw,h:h||bh}; return id; };
   const edge=(a,b,k,l)=>{ if(a&&b) E.push({a,b,k,l}); };
   const smap={"Room PC":"pc","Media player":"player","Digital signage player":"player","Cable / IPTV":"iptv","Document camera":"doccam","Wireless presentation":"wireless"};
@@ -688,7 +688,7 @@ function diagram(){
   if(swNode && ports) swNode.sub=`${ports} ports${poe?` (${poe} PoE)`:""} · `+swNode.sub.replace(/^same switch: /,"");
 
   // ---- layout + draw ----
-  const H=y-30, W=Math.max(1360, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
+  const H=y-30, W=Math.max(1240, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
   Object.values(N).forEach(n=>n.x=colX(n.col)+(bw-n.w)/2);
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), cy=n=>n.y+n.h/2;
   const ST={video:[D.acc,"",1.8],audio:[D.ok,"",1.8],control:[D.mute,"5 4",1.4],net:[D.acc2,"2 4",1.4],usb:[D.text,"7 3",1.2]};
