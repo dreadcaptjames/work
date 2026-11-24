@@ -805,6 +805,7 @@ function diagram(){
   LG.forEach(([t,k],i)=>{ const lx=W-20-(LG.length-i)*88, [c,da]=ST[k]; g+=`<line x1="${lx}" y1="16" x2="${lx+22}" y2="16" stroke="${c}" stroke-width="2" ${da?`stroke-dasharray="${da}"`:""}/><text x="${lx+27}" y="20" fill="${D.mute}" font-size="10">${t}</text>`; });
   const tags={}, netTags=!(S.view&&S.view.netLines);
   E.forEach(e=>{
+    delete e._lx; delete e._ly;
     const A1=N[e.a], B1=N[e.b]; if(!A1||!B1) return;
     if(netTags && e.k==="net" && e.b==="net"){ (tags[e.a]=tags[e.a]||[]).push((e.l||"LAN")+" → NSW-1"); return; }
     const [c,da,w]=ST[e.k]; let x1,y1,x2,y2,p;
@@ -825,10 +826,14 @@ function diagram(){
       const tA=A1.h>bh, tB=B1.h>bh;
       y1=tA&&!tB?clamp(cy(B1),A1.y+12,A1.y+A1.h-12):cy(A1); y2=tB&&!tA?clamp(cy(A1),B1.y+12,B1.y+B1.h-12):cy(B1);
       if(B1.anchor){ x2=B1.anchor.x; y2=B1.anchor.y; if(tA) y1=clamp(y2,A1.y+12,A1.y+A1.h-12); else if(A1.h===bh) y1=cy(A1); }
-      const mx=(x1+x2)/2; p=`M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+      // right-angle routing; stagger the vertical leg so parallel runs don't stack on top of each other
+      if(Math.abs(y1-y2)<1){ p=`M${x1} ${y1} H${x2}`; }
+      else { const span=x2-x1, lane=((E.indexOf(e)%7)-3)*7, mx=x1+span/2+(Math.abs(span)>60?lane:0), r=Math.min(6,Math.abs(y2-y1)/2,Math.abs(mx-x1),Math.abs(x2-mx)), sx=Math.sign(mx-x1)||1, sy=Math.sign(y2-y1), sx2=Math.sign(x2-mx)||1;
+        p=`M${x1} ${y1} H${mx-sx*r} Q${mx} ${y1} ${mx} ${y1+sy*r} V${y2-sy*r} Q${mx} ${y2} ${mx+sx2*r} ${y2} H${x2}`;
+        e._lx=(x1+mx)/2; e._ly=y1; }
     }
     g+=`<path d="${p}" fill="none" stroke="${c}" stroke-width="${w}" ${da?`stroke-dasharray="${da}"`:""} opacity=".9"/>`;
-    if(e.l) g+=`<text x="${(x1+x2)/2}" y="${(y1+y2)/2-4}" text-anchor="middle" fill="${c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(e.l)}</text>`;
+    if(e.l) g+=`<text x="${e._lx??(x1+x2)/2}" y="${(e._ly??(y1+y2)/2)-4}" text-anchor="middle" fill="${c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(e.l)}</text>`;
   });
   Object.values(N).forEach(n=>{
     if(n.kind!=="spk"){ g+=box(n.x,n.y,n.w,n.h,n.title,n.sub,n.kind==="core"||n.col===2?D.accbg:D.panel,KS[n.kind]||D.line,n.col===2); return; }
