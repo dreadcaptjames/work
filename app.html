@@ -594,6 +594,74 @@ function exportCSV(){
 }
 
 let LAST_LAYOUT=null;
+// ---------- Location-zone layout (inspired by as-built field-device sheets) ----------
+// Columns: 0 source/field-in · 1 at-source Tx/enc · 2 rack-in · 3 rack core blocks · 4 rack-out · 5 at-display Rx/dec · 6 field devices
+function zoneLayout(N,E,o){
+  const {bh,gap}=o, ZG=46, TOP=70;
+  delete N.rack; for(let i=E.length-1;i>=0;i--) if(E[i].a==="rack"||E[i].b==="rack") E.splice(i,1);
+  const srcIdx=id=>+id.replace(/\D/g,""), src=i=>S.sources[i]||{};
+  const leftLoc=l=>l==="Equipment rack"?null:l;
+  // place for things that sit with the users: lectern/table preferred
+  const userLoc=S.sources.find(x=>x.loc==="Lectern")?"Lectern":S.sources.find(x=>x.loc==="Table")?"Table":"Lectern";
+  const Z={}; const z=(key,label,side)=>Z[key]=Z[key]||{key,label,side,ids:[]};
+  const put=(id,col,zk,label,side)=>{ if(!N[id]) return; N[id].col=col; N[id].xo=undefined; N[id].zone=zk; z(zk,label,side).ids.push(id); };
+  const rackLabel=`Equipment located in ${S.infra.rackLoc} rack`;
+  Object.keys(N).forEach(id=>{
+    let m;
+    if((m=id.match(/^s(\d+)$/))){ const l=leftLoc(src(+m[1]).loc); l?put(id,0,"L:"+l,"Equipment located at "+l,"L"):put(id,2,"rack",rackLabel,"C"); }
+    else if((m=id.match(/^(enc|tx)(\d+)$/))){ const l=leftLoc(src(+m[2]).loc); l?put(id,1,"L:"+l,"Equipment located at "+l,"L"):put(id,2,"rack",rackLabel,"C"); }
+    else if(/^srx\d+$/.test(id)||id==="usb") put(id,2,"rack",rackLabel,"C");
+    else if(["core","dspx","proc","net"].includes(id)) put(id,3,"rack",rackLabel,"C");
+    else if(/^htx\d+$/.test(id)||["amp","ald"].includes(id)||/^x_/.test(id)) put(id,4,"rack",rackLabel,"C");
+    else if(/^(rx|dec)\d+$/.test(id)) put(id,5,"R:disp","Displays · front of room","R");
+    else if(/^d\d+$/.test(id)) put(id,6,"R:disp","Displays · front of room","R");
+    else if((m=id.match(/^mic(\d+)$/))){ const t=(S.audio.mics[+m[1]]||{}).type||"";
+      if(/Ceiling/.test(t)) put(id,6,"R:ceil","Ceiling","R");
+      else if(/Wireless/.test(t)){ N[id].title=`Wireless mic rx ×${(S.audio.mics[+m[1]]||{}).qty||1}`; put(id,2,"rack",rackLabel,"C"); }
+      else { const l=/Gooseneck/.test(t)?"Lectern":"Table"; put(id,0,"L:"+l,"Equipment located at "+l,"L"); } }
+    else if(id==="spk"){ const t=S.audio.speakers; t==="Ceiling"?put(id,6,"R:ceil","Ceiling","R"):put(id,6,"R:room","Room · walls","R"); }
+    else if(id==="occ") put(id,6,"R:ceil","Ceiling","R");
+    else if((m=id.match(/^cam(\d+)$/))){ const mt=(S.cameras[+m[1]]||{}).mount||"Wall"; mt==="Ceiling"?put(id,6,"R:ceil","Ceiling","R"):["Tabletop","Lectern"].includes(mt)?put(id,0,"L:"+(mt==="Tabletop"?"Table":"Lectern"),"Equipment located at "+(mt==="Tabletop"?"Table":"Lectern"),"L"):put(id,6,"R:cam:"+mt,"Cameras · "+mt.toLowerCase(),"R"); }
+    else if(id==="tp"||id==="kp") put(id,0,"L:"+userLoc,"Equipment located at "+userLoc,"L");
+    else if(id==="sched") put(id,6,"R:door","Door · corridor","R");
+    else put(id,4,"rack",rackLabel,"C");
+  });
+  const nh=n=>n.h||bh, step=n=>nh(n)+(gap-bh);
+  const ord=(a,b)=>Object.keys(N).indexOf(a)-Object.keys(N).indexOf(b);
+  // stack a side's zones top→bottom; col 0/6 drive rows, partners (col 1/5) share the row
+  const partner={}; E.forEach(e=>{ const A=N[e.a],B=N[e.b]; if(!A||!B||A.zone!==B.zone) return;
+    if(A.col===1&&B.col===0) partner[e.a]=e.b; if(B.col===1&&A.col===0) partner[e.b]=e.a; if(A.col===5&&B.col===6) partner[e.a]=e.b; if(B.col===5&&A.col===6) partner[e.b]=e.a; });
+  const stackSide=(side,mainCol)=>{ let y=TOP; Object.values(Z).filter(q=>q.side===side).forEach(q=>{
+      q.y0=y; y+=28;
+      q.ids.filter(id=>N[id].col===mainCol).sort(ord).forEach(id=>{ N[id].y=y; y+=step(N[id]); });
+      q.ids.filter(id=>N[id].col!==mainCol).forEach(id=>{ const p=partner[id]; if(p&&N[p].y!==undefined) N[id].y=N[p].y; else { N[id].y=y; y+=step(N[id]); } });
+      y+=ZG-(gap-bh); }); return y; };
+  const yL=stackSide("L",0), yR=stackSide("R",6);
+  // rack side columns: align with what they connect to, then de-overlap
+  const nb=id=>E.filter(e=>(e.a===id||e.b===id)&&(e.k==="video"||e.k==="audio")).map(e=>e.a===id?e.b:e.a).map(k=>N[k]).filter(n=>n&&n.y!==undefined&&n.zone!=="rack");
+  const settle=ids=>{ ids.forEach(id=>{ const ps=nb(id); N[id].y=ps.length?Math.min(...ps.map(p=>p.y+(p.anchor?0:0))):1e9; });
+    ids.sort((a,b)=>N[a].y-N[b].y); let floor=TOP+28; ids.forEach(id=>{ const n=N[id]; if(n.y===1e9||n.y<floor) n.y=Math.max(floor,n.y===1e9?floor:n.y); floor=n.y+step(n); }); };
+  settle(Z.rack?Z.rack.ids.filter(id=>N[id].col===2):[]);
+  settle(Z.rack?Z.rack.ids.filter(id=>N[id].col===4):[]);
+  // core blocks: tall, spanning what they connect to
+  const blocks=["core","dspx","proc","net"].filter(k=>N[k]); let floor=TOP+28;
+  blocks.forEach(k=>{ const ys=E.filter(e=>(e.a===k||e.b===k)&&e.k!=="net"&&e.k!=="control").map(e=>N[e.a===k?e.b:e.a]).filter(n=>n&&n.y!==undefined&&n.col!==3);
+    let top=ys.length?Math.min(...ys.map(n=>n.y)):floor, bot=ys.length?Math.max(...ys.map(n=>n.y+nh(n))):floor+100;
+    top=Math.max(top-6,floor); const h=Math.max(100,bot-top+6); N[k].y=top; N[k].h=h; floor=top+h+24; });
+  // columns → x
+  const CWD=[200,125,165,120,165,140,200], G=[46,40,44,44,40,46];
+  const base=40+CWD.reduce((a,b)=>a+b)+G.reduce((a,b)=>a+b)+32;
+  const ids=Object.keys(N); let maxY=Math.max(yL,yR,...ids.map(k=>N[k].y+nh(N[k])+30));
+  const H=maxY+10, W=Math.max(base,Math.ceil(H*1.6)), extra=(W-base)/G.length;
+  const cx=[]; let x=36; CWD.forEach((w,i)=>{ cx.push(x); x+=w+(i<G.length?G[i]+extra:0); });
+  ids.forEach(k=>{ const n=N[k]; if(n.kind!=="spk") n.w=CWD[n.col]; n.x=cx[n.col]; });
+  // zone boxes
+  const zones=Object.values(Z).map(q=>{ const ns=q.ids.map(k=>N[k]).filter(Boolean); if(!ns.length) return null;
+    const x0=Math.min(...ns.map(n=>n.x))-14, x1=Math.max(...ns.map(n=>n.x+n.w))+14, y0=Math.min(...ns.map(n=>n.y))-30, y1=Math.max(...ns.map(n=>n.y+nh(n)+(n.circles?0:16)))+8;
+    const label=q.label;
+    return {x:x0,y:y0,w:x1-x0,h:y1-y0,label,rack:q.key==="rack"}; }).filter(Boolean);
+  return {W,H,zones};
+}
 function diagram(){
   const D=T(), IT=items(), has=k=>IT.find(i=>i.key===k);
   const model=k=>{ const i=has(k); if(!i) return ""; const p=pickOf(i); return p?p[0]+" "+p[1]:""; };
@@ -721,8 +789,7 @@ function diagram(){
   if(swNode && ports) swNode.sub=`${ports} ports${poe?` (${poe} PoE)`:""} · `+swNode.sub.replace(/^same switch: /,"");
 
   // ---- layout + draw ----
-  const H=y-30, W=Math.max(wideTx||HB.inExt?1320:1180, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
-  Object.values(N).forEach(n=>n.x=colX(n.col)+(n.xo!==undefined?n.xo:(bw-n.w)/2));
+  const {W,H,zones}=zoneLayout(N,E,{bh,gap,avoip,coreId});
   Object.values(N).filter(n=>n.kind==="spk").forEach(n=>{ const r=9, sp=27; n.circles=[];
     for(let i=0;i<Math.max(1,n.count);i++){ const row=Math.floor(i/n.per), col=i%n.per; n.circles.push({x:n.x+14+col*sp, y:n.y+38+row*26, r}); }
     n.anchor={x:n.circles[0].x-r, y:n.circles[0].y}; });
@@ -730,7 +797,9 @@ function diagram(){
   const ST={video:[D.acc,"",1.8],audio:[D.ok,"",1.8],control:[D.mute,"5 4",1.4],net:[D.acc2,"2 4",1.4],usb:[D.text,"7 3",1.2]};
   const KS={src:D.line,dsp:D.line,ep:D.acc,core:D.acc,aud:D.ok,conf:D.acc2,ctl:D.mute,net:D.acc2};
   let g=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:760px;font-family:system-ui,sans-serif;font-size:12px"><rect width="${W}" height="${H}" fill="${D.field}"/>`;
-  secs.forEach(([t,sy],i)=>{ if(i) g+=`<line x1="20" y1="${sy-18}" x2="${W-20}" y2="${sy-18}" stroke="${D.line}"/>`; g+=`<text x="20" y="${sy}" fill="${D.mute}" font-size="11" letter-spacing="1.5">${t}</text>`; });
+  g+=`<text x="20" y="24" fill="${D.text}" font-weight="700" font-size="15">${esc(S.project.name||"Untitled design")} <tspan fill="${D.mute}" font-weight="400" font-size="12">· signal flow</tspan></text>`;
+  zones.forEach(z=>{ g+=`<rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="10" fill="none" stroke="${z.rack?D.acc:D.line}" stroke-width="${z.rack?1.6:1.2}" stroke-dasharray="${z.rack?"":"6 4"}"/><text x="${z.x+12}" y="${z.y+18}" fill="${z.rack?D.acc:D.mute}" font-style="italic" font-size="12.5">${esc(z.label)}</text>`; });
+  [].forEach(([t,sy],i)=>{ if(i) g+=`<line x1="20" y1="${sy-18}" x2="${W-20}" y2="${sy-18}" stroke="${D.line}"/>`; g+=`<text x="20" y="${sy}" fill="${D.mute}" font-size="11" letter-spacing="1.5">${t}</text>`; });
   // legend
   const LG=[["Video","video"],["Audio","audio"],["Control","control"],["Network","net"],["USB","usb"]];
   LG.forEach(([t,k],i)=>{ const lx=W-20-(LG.length-i)*88, [c,da]=ST[k]; g+=`<line x1="${lx}" y1="16" x2="${lx+22}" y2="16" stroke="${c}" stroke-width="2" ${da?`stroke-dasharray="${da}"`:""}/><text x="${lx+27}" y="20" fill="${D.mute}" font-size="10">${t}</text>`; });
@@ -771,7 +840,7 @@ function diagram(){
   });
   Object.entries(tags).forEach(([id,ts])=>{ const n=N[id]; const t=[...new Set(ts)].join(", "), tw=Math.min(Math.max(n.w-8,190),t.length*5.4+12);
     g+=`<rect x="${n.x+n.w-tw}" y="${n.y+n.h+2}" width="${tw}" height="13" rx="6.5" fill="${D.field}" stroke="${D.acc2}" stroke-width="1"/><text x="${n.x+n.w-tw/2}" y="${n.y+n.h+11.5}" text-anchor="middle" fill="${D.acc2}" font-size="9">${esc(t)}</text>`; });
-  LAST_LAYOUT={N,E,W,H,secs,bw,bh};
+  LAST_LAYOUT={N,E,W,H,secs:[],zones,bw,bh};
   return g+"</svg>";
 }
 function box(x,y,w,h,t,sub,fill,stroke,bold){
@@ -838,6 +907,8 @@ function exportDrawio(){
     if(i) cells.push(`<mxCell id="${id("sep")}" value="" style="endArrow=none;html=1;strokeColor=#d3dae2;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="20" y="${sy-18}" as="sourcePoint"/><mxPoint x="${L.W-20}" y="${sy-18}" as="targetPoint"/></mxGeometry></mxCell>`);
     cells.push(`<mxCell id="${id("sec")}" value="${x(t)}" style="text;html=1;fontSize=11;fontColor=#5b6875;align=left;verticalAlign=bottom;" vertex="1" parent="1"><mxGeometry x="20" y="${sy-16}" width="300" height="20" as="geometry"/></mxCell>`);
   });
+  // location zones (behind devices)
+  (L.zones||[]).forEach(zn=>cells.push(`<mxCell id="${id("zone")}" value="${x(zn.label)}" style="rounded=1;arcSize=4;html=1;fillColor=none;strokeColor=${zn.rack?"#0a6cff":"#8b98a5"};${zn.rack?"strokeWidth=1.6;":"dashed=1;dashPattern=6 4;"}verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=2;fontSize=12;fontColor=${zn.rack?"#0a6cff":"#5b6875"};" vertex="1" parent="1"><mxGeometry x="${Math.round(zn.x)}" y="${Math.round(zn.y)}" width="${Math.round(zn.w)}" height="${Math.round(zn.h)}" as="geometry"/></mxCell>`));
   // devices
   const vid={};
   Object.values(L.N).forEach(nd=>{
