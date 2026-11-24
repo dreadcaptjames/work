@@ -678,9 +678,9 @@ function zoneLayout(N,E,o){
   const blocks=["core","dspx","proc","net"].filter(k=>N[k]); let floor=TOP+28;
   blocks.forEach(k=>{ const ys=E.filter(e=>(e.a===k||e.b===k)&&e.k!=="net"&&e.k!=="control").map(e=>N[e.a===k?e.b:e.a]).filter(n=>n&&n.y!==undefined&&n.col!==3);
     let top=ys.length?Math.min(...ys.map(n=>n.y)):floor, bot=ys.length?Math.max(...ys.map(n=>n.y+nh(n))):floor+100;
-    top=Math.max(top-6,floor); const h=Math.max(100,bot-top+6); N[k].y=top; N[k].h=h; floor=top+h+24; });
+    top=Math.max(top-6,floor); const h=Math.max(100,bot-top+6); N[k].y=top; N[k].h=h; floor=top+h+38; });
   // columns → x
-  const CWD=[200,125,165,120,165,140,200], G=[46,40,44,44,40,46];
+  const CWD=[200,125,165,120,165,140,200], G=[52,58,54,54,58,52];
   [1,2,4,5].forEach(c=>{ if(!Object.values(N).some(n=>n.col===c)){ CWD[c]=0; G[c<3?c:c-1]=0; } }); // collapse empty columns
   const base=40+CWD.reduce((a,b)=>a+b)+G.reduce((a,b)=>a+b)+32;
   const ids=Object.keys(N); let maxY=Math.max(yL,yR,...ids.map(k=>N[k].y+nh(N[k])+30));
@@ -735,10 +735,10 @@ function diagram(){
     else if(!avoip && transport(d.dist)==="HDBaseT"){
       const p=HB.per.find(q=>q.d===d)||{tx:false,rx:false};
       if(p.rx){ first=node("rx"+j,3,rowY(j),"HDBaseT Rx",model("hdrx"),"ep",0,125,118); edge(first,id,"video","HDMI"); }
-      if(p.tx){ const tx=node("htx"+j,3,rowY(j),"HDBaseT Tx",model("hdtx"),"ep",0,125,-62); edge(tx,first,"video",p.rx?"HDBaseT":"HDBaseT (built-in rx)"); first=tx; }
+      if(p.tx){ const tx=node("htx"+j,3,rowY(j),"HDBaseT Tx",model("hdtx"),"ep",0,125,-62); edge(tx,first,"video","HDBaseT"); first=tx; }
       else if(!p.rx) first={hdbtIn:id};
     }
-    if(first && first.hdbtIn){ if(coreId && r) edge(coreId,first.hdbtIn,"video","HDBaseT (built-in rx)"); }
+    if(first && first.hdbtIn){ if(coreId && r) edge(coreId,first.hdbtIn,"video","HDBaseT"); }
     else if(coreId && r) edge(coreId,first,"video",avoip?"1 GbE":transport(d.dist)!=="HDBaseT"?"HDMI":N["htx"+j]?"HDMI":"HDBaseT");
     else if(direct) routed().filter(x=>x[1]===d.id).forEach(x=>edge(srcEnd[x[0]],first.hdbtIn||first,"video",N["htx"+j]?"HDMI":transport(d.dist)));
   });
@@ -927,6 +927,7 @@ function diagram(){
     if(!improved) break;
   }
   // draw
+  const LBL=[];
   R.forEach(r=>{
     const e=r.e, [c,da,w]=ST[e.k]; let p, lx, ly;
     if(r.mode==="h" && r.ty!==undefined){
@@ -944,7 +945,7 @@ function diagram(){
       p=`M${x1} ${r.y1} H${r.lx} V${r.y2} H${x2}`; lx=r.lx; ly=(r.y1+r.y2)/2;
     } else { const dn=r.A.y<r.B.y, y1=dn?r.A.y+r.A.h:r.A.y, y2=dn?r.B.y:r.B.y+r.B.h; p=`M${r.lx} ${y1} V${y2}`; lx=r.lx; ly=(y1+y2)/2; }
     g+=`<path d="${p}" data-e="${e.a}>${e.b}:${r.mode}" fill="none" stroke="${c}" stroke-width="${w}" ${da?`stroke-dasharray="${da}"`:""} opacity=".9"/>`;
-    if(e.l) g+=`<text x="${lx}" y="${ly-4}" text-anchor="middle" fill="${c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(e.l)}</text>`;
+    if(e.l) LBL.push({t:e.l,c,segs:segOf(r)});
   });
   Object.values(N).forEach(n=>{
     if(n.kind!=="spk"){ g+=box(n.x,n.y,n.w,n.h,n.title,n.sub,n.kind==="core"||n.col===2?D.accbg:D.panel,KS[n.kind]||D.line,n.col===2); return; }
@@ -956,6 +957,30 @@ function diagram(){
   });
   Object.entries(tags).forEach(([id,ts])=>{ const n=N[id]; const t=[...new Set(ts)].join(", "), tw=Math.min(Math.max(n.w-8,190),t.length*5.4+12);
     g+=`<rect x="${n.x+n.w-tw}" y="${n.y+n.h+2}" width="${tw}" height="13" rx="6.5" fill="${D.field}" stroke="${D.acc2}" stroke-width="1"/><text x="${n.x+n.w-tw/2}" y="${n.y+n.h+11.5}" text-anchor="middle" fill="${D.acc2}" font-size="9">${esc(t)}</text>`; });
+  // ---- label placement: along the label's own line, clear of boxes, tags, zone titles and other labels
+  const OB=[]; const ob=(x,y,w,h)=>OB.push({x,y,w,h});
+  Object.values(N).forEach(n=>{ if(n.circles){ const xs=n.circles.map(c=>c.x), ys=n.circles.map(c=>c.y); ob(n.x-2,n.y-2,Math.max(150,Math.max(...xs)-n.x+12),Math.max(...ys)-n.y+12); } else ob(n.x-2,n.y-2,n.w+4,n.h+4); });
+  Object.entries(tags).forEach(([id,ts])=>{ const n=N[id], t=[...new Set(ts)].join(", "), tw=Math.min(Math.max(n.w-8,190),t.length*5.4+12); ob(n.x+n.w-tw-2,n.y+n.h+1,tw+4,15); });
+  zones.forEach(z=>ob(z.x+8,z.y+4,z.label.length*6.6+10,18));
+  ob(W-480,4,480,22); ob(14,4,420,28); // legend, title
+  const hit=(a,b)=>Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
+  LBL.forEach(L=>{
+    const w=L.t.length*5.3+6, h=11, cand=[];
+    [...L.segs].sort((p,q)=>(q.b-q.a)-(p.b-p.a)).forEach(sg=>{
+      const ts=[.5,.3,.7,.15,.85,.05,.95,.4,.6,.22,.78];
+      for(const dist of [0,1,2,3]) for(const t of ts){   // first hug the line, then step further out
+        if(sg.o==="h"){ const x=sg.a+(sg.b-sg.a)*t; if(sg.b-sg.a<w+6 && t!==.5) continue; const up=[-4,-16,-28,-40][dist], dn=[11,24,36,48][dist];
+          cand.push({x,y:sg.k+up,anchor:"middle",r:{x:x-w/2,y:sg.k+up-10,w,h}}, {x,y:sg.k+dn,anchor:"middle",r:{x:x-w/2,y:sg.k+dn-9,w,h}}); }
+        else { const y=sg.a+(sg.b-sg.a)*t; if(sg.b-sg.a<16) continue; const o=[5,14,26,40][dist];
+          cand.push({x:sg.k+o,y:y+3,anchor:"start",r:{x:sg.k+o-2,y:y-6,w,h}}, {x:sg.k-o,y:y+3,anchor:"end",r:{x:sg.k-o+2-w,y:y-6,w,h}}); }
+      }
+    });
+    if(!cand.length) return;
+    let best=null, bs=1e18;
+    for(const cd of cand){ const sc=OB.reduce((a,o)=>a+hit(cd.r,o),0)+(cd.r.x<0||cd.r.x+cd.r.w>W?1e6:0); if(sc<bs){ bs=sc; best=cd; if(sc===0) break; } }
+    OB.push(best.r);
+    g+=`<text x="${best.x}" y="${best.y}" text-anchor="${best.anchor}" fill="${L.c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(L.t)}</text>`;
+  });
   LAST_LAYOUT={N,E,W,H,secs:[],zones,bw,bh};
   return g+"</svg>";
 }
