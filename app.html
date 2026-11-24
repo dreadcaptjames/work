@@ -173,58 +173,376 @@ const ROOM_TYPES = ["Huddle room","Conference room","Boardroom","Training / clas
 
 // ---------- Product catalog (real models; verify current availability with distributor) ----------
 // Each entry: [brand, model, short description, ecosystems]
+// ---------- Product catalog ----------
+// Each entry: [brand, model, short description, ecosystem ("*" = any), scale tiers: s = small/huddle, m = medium/conference/classroom, l = large/auditorium/campus]
+// Verify current part numbers, availability and specs with your distributor before quoting.
 const CAT = {
-  avoip_enc:[["Crestron","DM-NVX-E30","4K60 AV-over-IP encoder","crestron"],["Crestron","DM-NVX-363","4K60 AVoIP encoder/decoder (configurable)","crestron"],["Extron","NAV E 101 4K","NAV Pro AV-over-IP encoder","extron"],["Q-SYS","NV-32-H (Core Capable)","Network video endpoint, encoder mode","qsys"],["Atlona","AT-OMNI-121","OmniStream 1-ch encoder","atlona"]],
-  avoip_dec:[["Crestron","DM-NVX-D30","4K60 AV-over-IP decoder","crestron"],["Crestron","DM-NVX-363","4K60 AVoIP encoder/decoder (configurable)","crestron"],["Extron","NAV SD 101 4K","NAV Pro AV-over-IP decoder","extron"],["Q-SYS","NV-32-H (Core Capable)","Network video endpoint, decoder mode","qsys"],["Atlona","AT-OMNI-122","OmniStream 1-ch decoder","atlona"]],
-  avoip_switch:[["Netgear","M4250 series (AV Line)","AV-profile managed switch, multicast/IGMP ready","*"],["Cisco","Catalyst 9300 series","Enterprise switch — needs IGMP snooping/querier","*"],["Luxul","AMS series","Managed switch for smaller AVoIP","*"]],
-  hdbt_tx:[["Extron","DTP HDMI 4K 230 Tx","HDBaseT transmitter, 230 ft","extron"],["Crestron","HD-TX-4KZ-101","HDBaseT 4K transmitter","crestron"],["Atlona","AT-HDR-EX-100CEA-TX","HDBaseT 4K transmitter","atlona"],["Extron","DTP HDMI 4K 330 Tx","HDBaseT transmitter, 330 ft","*"]],
-  hdbt_rx:[["Extron","DTP HDMI 4K 230 Rx","HDBaseT receiver, 230 ft","extron"],["Crestron","HD-RX-4KZ-101","HDBaseT 4K receiver","crestron"],["Atlona","AT-HDR-EX-100CEA-RX","HDBaseT 4K receiver","atlona"],["Extron","DTP HDMI 4K 330 Rx","HDBaseT receiver, 330 ft","*"]],
-  pres_sw:[["Crestron","HD-PS622","6×2 4K presentation switcher, HDBaseT outs","crestron"],["Crestron","HD-PS402","4×2 4K presentation switcher","crestron"],["Extron","IN1608 xi","8-input scaling presentation switcher w/ DTP","extron"],["Extron","IN1606","6-input scaling presentation switcher","extron"],["Atlona","AT-OME-PS62","6×2 Omega presentation switcher","atlona"],["Q-SYS","NV-32-H (Core Capable)","3-in HDMI switcher endpoint","qsys"]],
-  matrix:[["Extron","DXP 84 HD 4K PLUS","8×4 HDMI matrix","extron"],["Extron","DXP 88 HD 4K PLUS","8×8 HDMI matrix","extron"],["Extron","DXP 168 HD 4K PLUS","16×8 HDMI matrix","extron"],["Atlona","AT-UHD-PRO3-88M","8×8 HDBaseT matrix","atlona"],["Crestron","DM-NVX system","Crestron recommends NVX over fixed matrices","crestron"]],
-  dsp_open:[["Biamp","TesiraFORTÉ X 400","Open-arch DSP, AEC, Dante, USB","*"],["Biamp","TesiraFORTÉ X 800","Open-arch DSP, 8-ch AEC","*"],["Q-SYS","Core Nano","Network-only Q-SYS core (Dante/AES67/Q-LAN)","qsys"],["Q-SYS","Core 8 Flex","Q-SYS core with analog/GPIO I/O","qsys"],["Shure","IntelliMix P300","Conferencing DSP for Shure mics, AEC","*"]],
-  dsp_small:[["Shure","IntelliMix P300","Compact AEC DSP, Dante + USB","*"],["Biamp","TesiraFORTÉ X 400","Compact DSP","*"],["Q-SYS","Core Nano","Small Q-SYS core","qsys"]],
-  amp:[["QSC","SPA2-60","2×60 W @ 4/8 Ω, low-Z","*"],["QSC","SPA4-100","4×100 W @ 8 Ω, low-Z","*"],["Crestron","AMP-X300","300 W 70/100 V or 4/8 Ω","crestron"],["Q-SYS","CX-Q 2K4","4×500 W network amp, 70V capable","qsys"],["Extron","XPA 2001-70V","200 W 70 V mono amp","extron"],["Extron","NetPA U 1004","4×100 W Dante amp","extron"]],
-  spk_ceiling:[["QSC","AD-C6T","6.5\" ceiling, 70/100 V taps","*"],["JBL","Control 26CT","6.5\" ceiling, 70/100 V","*"],["Biamp","Desono C-IC6","6.5\" ceiling, 70 V","*"],["Crestron","SAROS IC6T","6.5\" ceiling, 70/100 V","crestron"]],
-  spk_wall:[["QSC","AD-S6T","6.5\" surface, 70/100 V","*"],["JBL","Control 25-1","5.25\" surface speaker","*"]],
-  spk_line:[["QSC","AcousticDesign AD-S.SUB + AD-S28Tw","Install PA package","*"],["JBL","CBT 70J-1","Constant-beamwidth column","*"]],
-  mic_ceiling:[["Shure","MXA920","Ceiling array, auto-coverage","*"],["Sennheiser","TeamConnect Ceiling 2","Beamforming ceiling array","*"],["Biamp","Parlé TCM-X","Ceiling beam-tracking mic","*"],["Q-SYS","NM-T1","Network ceiling mic","qsys"]],
-  mic_table:[["Shure","MXA310","Table array","*"],["Biamp","Parlé TTM-X","Table mic","*"],["Shure","MX395","Boundary mic","*"]],
-  mic_goose:[["Shure","MX418","18\" gooseneck","*"],["Shure","Microflex Complete","Gooseneck delegate system","*"]],
-  mic_wireless:[["Shure","SLX-D","Digital wireless (handheld/lav/headset)","*"],["Shure","ULX-D","Pro digital wireless, Dante","*"],["Sennheiser","EW-DX","Digital wireless","*"]],
-  ald:[["Listen Technologies","ListenIR / ListenEverywhere","IR or Wi-Fi assistive listening","*"],["Williams AV","FM Plus PPA","FM assistive listening","*"]],
-  vc_teams:[["Logitech","Rally Bar","All-in-one video bar (Teams/Zoom)","*"],["Poly","Studio X52","Video bar, Teams/Zoom","*"],["Neat","Neat Bar Pro","Video bar, Teams/Zoom","*"],["Yealink","MeetingBar A30","Video bar, Teams/Zoom","*"],["Crestron","Flex UC-C/UC-B series","Teams/Zoom room kit","crestron"]],
-  vc_compute:[["Logitech","RoomMate + Tap IP","Appliance compute for larger rooms","*"],["Crestron","UC-ENGINE","Teams/Zoom room compute","crestron"],["Q-SYS","NC-Series + Core","Q-SYS native UC","qsys"],["Lenovo","ThinkSmart Core","Teams Room compute","*"]],
-  cam_ptz:[["Logitech","Rally Camera","PTZ, USB","*"],["Q-SYS","NC-20x60","20× PTZ network camera","qsys"],["Crestron","1 Beyond i12","PTZ, auto-tracking","crestron"],["AVer","CAM520 Pro3","PTZ, PoE/USB","*"],["Huddly","L1","Intelligent wide, AI framing","*"]],
-  cam_fixed:[["Huddly","IQ","Fixed wide-angle, AI framing, USB","*"],["Logitech","Sight","Tabletop 315° AI companion camera","*"],["AVer","CAM340+","4K fixed wide, USB","*"]],
-  cam_intel:[["Huddly","L1","Intelligent wide, AI framing, IP/PoE","*"],["Logitech","Rally Camera","PTZ with auto-framing","*"],["Crestron","1 Beyond i12","Auto-tracking PTZ","crestron"],["Q-SYS","NC-20x60","PTZ with Q-SYS Seervision tracking","qsys"]],
-  cam_bar:[["Logitech","Rally Bar","Video bar: camera + mics + speakers","*"],["Poly","Studio X52","Video bar","*"],["Neat","Neat Bar Pro","Video bar","*"],["Yealink","MeetingBar A30","Video bar","*"]],
-  usb_bridge:[["Logitech","Swytch","BYOD laptop link to room cam/mics","*"],["Q-SYS","NV-32-H / I/O-USB Bridge","USB bridge to Q-SYS","qsys"]],
-  wireless:[["Barco","ClickShare CX-50 Gen 2","Wireless conferencing + presentation","*"],["Crestron","AirMedia AM-3200","Wireless presentation","crestron"],["Mersive","Solstice Pod","Wireless collaboration","*"]],
-  touch:[["Crestron","TSW-770","7\" touch panel","crestron"],["Crestron","TSW-1070","10\" touch panel","crestron"],["Extron","TLP Pro 725T","7\" tabletop touch panel","extron"]],
-  keypad:[["Extron","MLC Plus 100","MediaLink controller","extron"]],
-  processor:[["Crestron","CP4N","Control processor","crestron"],["Crestron","MC4-R","Room control processor","crestron"],["Extron","IPCP Pro 250 Q xi","IP Link Pro control processor","extron"],["Q-SYS","Core (control built-in)","Control runs on the Q-SYS Core","qsys"]],
-  scheduler:[["Crestron","TSS-770","Room scheduling panel","crestron"],["Logitech","Tap Scheduler","Teams/Zoom scheduling panel","*"]],
-  occupancy:[["Crestron","GLS-ODT-C-CN","Dual-tech ceiling occupancy sensor","crestron"]],
-  pc:[["Dell","OptiPlex Micro","Small form-factor room PC","*"],["Lenovo","ThinkCentre M90q Tiny","Small form-factor room PC","*"]],
-  player:[["BrightSign","XT1145","4K signage/media player","*"],["BrightSign","HD225","HD media player","*"]],
-  iptv:[["Exterity","AvediaPlayer","IPTV decoder","*"],["VITEC","EZ TV","IPTV / cable STB","*"]],
-  doccam:[["Elmo","MX-P3","4K document camera","*"],["IPEVO","VZ-X","Document camera","*"]],
-  panel:[["Samsung","QMC series","4K commercial display, 43–98\"","*"],["LG","UH5N-E series","4K commercial display","*"],["Sony","BRAVIA Professional BZ series","4K pro display","*"],["NEC/Sharp","MultiSync M series","4K commercial display","*"]],
-  projector:[["Epson","Pro L series laser","WUXGA/4K laser projector","*"],["Panasonic","PT-RZ series","Laser projector","*"],["Da-Lite / Draper","Tensioned motorized screen","Projection screen","*"]],
-  led:[["Absen","Acclaim series","Fine-pitch LED","*"],["Samsung","The Wall / IWA","Fine-pitch LED","*"],["LG","LAEC all-in-one","All-in-one LED display","*"]],
-  interactive:[["Samsung","WAD Flip series","Interactive display","*"],["SMART","Board MX series","Interactive display","*"],["Microsoft","Surface Hub 3","Teams interactive display","*"]],
-  tableinput:[["Extron","Cable Cubby 600","Table cable access enclosure","extron"],["Crestron","FT2-600","FlipTop table box","crestron"],["Legrand/AVTX","TBX/Evolution series","Table box","*"]],
-  rack:[["Middle Atlantic","DWR wall rack / Forward credenza","Equipment rack","*"],["Middle Atlantic","UPS-OL series","Rack UPS / power","*"]]
+  // ---- AV over IP ----
+  avoip_enc:[
+    ["Crestron","DM-NVX-E30","DM NVX 4K60 encoder","crestron","ml"],
+    ["Crestron","DM-NVX-E20","DM NVX encoder, compact","crestron","sm"],
+    ["Crestron","DM-NVX-363","DM NVX 4K60 encoder/decoder (configurable), Dante","crestron","ml"],
+    ["Crestron","DM-NVX-E760","DM NVX 4K60 encoder with Dante, rack/surface","crestron","l"],
+    ["Extron","NAV E 101 4K","NAV Pro AV-over-IP encoder","extron","ml"],
+    ["Q-SYS","NV-32-H (Core Capable)","Network video endpoint, encoder mode","qsys","sml"],
+    ["Q-SYS","NV-21-HU","Network video endpoint with USB, encoder mode","qsys","sm"],
+    ["Atlona","AT-OMNI-121","OmniStream single-channel encoder","atlona","ml"],
+    ["Atlona","AT-OMNI-112","OmniStream dual-channel encoder","atlona","l"],
+    ["Just Add Power","3G+ series transmitter","4K HDMI over IP transmitter","*","sml"],
+    ["Kramer","KDS-7 series encoder","4K AVoIP encoder","*","ml"]],
+  avoip_dec:[
+    ["Crestron","DM-NVX-D30","DM NVX 4K60 decoder","crestron","ml"],
+    ["Crestron","DM-NVX-D20","DM NVX decoder, compact","crestron","sm"],
+    ["Crestron","DM-NVX-363","DM NVX 4K60 encoder/decoder (configurable), Dante","crestron","ml"],
+    ["Crestron","DM-NVX-D80-IoAV","DM NVX decoder, display-mount","crestron","l"],
+    ["Extron","NAV SD 101 4K","NAV Pro AV-over-IP decoder","extron","ml"],
+    ["Q-SYS","NV-32-H (Core Capable)","Network video endpoint, decoder mode","qsys","sml"],
+    ["Atlona","AT-OMNI-122","OmniStream single-channel decoder","atlona","ml"],
+    ["Just Add Power","3G+ series receiver","4K HDMI over IP receiver","*","sml"],
+    ["Kramer","KDS-7 series decoder","4K AVoIP decoder","*","ml"]],
+  avoip_switch:[
+    ["Netgear","M4250 series (AV Line)","AV-profile managed PoE+ switch, 8–48 ports","*","sm"],
+    ["Netgear","M4350 series (AV Line)","AV-profile managed switch, 10G uplinks, larger systems","*","ml"],
+    ["Cisco","Catalyst 9300 series","Enterprise stackable switch; IGMP snooping/querier required","*","ml"],
+    ["Cisco","Catalyst 9200 series","Enterprise access switch","*","sm"],
+    ["Luxul","AMS series","Managed PoE switch for small systems","*","s"],
+    ["Aruba","CX 6300 series","Enterprise stackable switch","*","l"]],
+
+  // ---- HDBaseT / extension ----
+  hdbt_tx:[
+    ["Extron","DTP HDMI 4K 230 Tx","HDBaseT transmitter, 230 ft","extron","sm"],
+    ["Extron","DTP HDMI 4K 330 Tx","HDBaseT transmitter, 330 ft","*","ml"],
+    ["Extron","DTP2 T 211","DTP2 transmitter, 4K60 4:4:4","extron","ml"],
+    ["Extron","DTP T HWP 4K 231 D","HDBaseT wall-plate transmitter (Decora)","extron","sm"],
+    ["Crestron","HD-TX-4KZ-101","HDBaseT 4K transmitter","crestron","sm"],
+    ["Crestron","DM-TX-4KZ-100-C-1G","DigitalMedia 4K wall-plate transmitter","crestron","ml"],
+    ["Atlona","AT-HDR-EX-70C-TX","HDBaseT 4K transmitter, 70 m","atlona","sm"],
+    ["Atlona","AT-HDR-EX-100CEA-TX","HDBaseT 4K transmitter, 100 m","atlona","ml"],
+    ["Kramer","TP-583T","HDBaseT 4K transmitter","*","sm"]],
+  hdbt_rx:[
+    ["Extron","DTP HDMI 4K 230 Rx","HDBaseT receiver, 230 ft","extron","sm"],
+    ["Extron","DTP HDMI 4K 330 Rx","HDBaseT receiver, 330 ft","*","ml"],
+    ["Extron","DTP2 R 211","DTP2 receiver, 4K60 4:4:4","extron","ml"],
+    ["Crestron","HD-RX-4KZ-101","HDBaseT 4K receiver","crestron","sm"],
+    ["Crestron","DM-RMC-4KZ-100-C","DigitalMedia 4K room controller/receiver","crestron","ml"],
+    ["Atlona","AT-HDR-EX-70C-RX","HDBaseT 4K receiver, 70 m","atlona","sm"],
+    ["Atlona","AT-HDR-EX-100CEA-RX","HDBaseT 4K receiver, 100 m","atlona","ml"],
+    ["Kramer","TP-583R","HDBaseT 4K receiver","*","sm"]],
+
+  // ---- Switching ----
+  pres_sw:[
+    ["Kramer","VS-211X","2×1 4K auto-switcher","*","s"],
+    ["Extron","SW2 HD 4K PLUS","2-input 4K HDMI switcher","extron","s"],
+    ["Extron","SW4 HD 4K PLUS","4-input 4K HDMI switcher","extron","s"],
+    ["Atlona","AT-UHD-SW-510W","5×1 4K switcher with wall plate, HDBaseT out","atlona","s"],
+    ["Crestron","HD-PS401","4×1 4K presentation switcher, HDBaseT out","crestron","s"],
+    ["Crestron","HD-PS402","4×2 4K presentation switcher","crestron","sm"],
+    ["Crestron","HD-PS621","6×1 4K presentation switcher","crestron","m"],
+    ["Crestron","HD-PS622","6×2 4K presentation switcher, HDBaseT outs","crestron","m"],
+    ["Extron","IN1606","6-input scaling presentation switcher","extron","m"],
+    ["Extron","IN1608 xi","8-input scaling presentation switcher w/ DTP","extron","m"],
+    ["Atlona","AT-OME-PS62","Omega 6×2 presentation switcher","atlona","m"],
+    ["Atlona","AT-OME-MS52W","Omega 5×2 matrix switcher with wall plate","atlona","sm"],
+    ["Q-SYS","NV-32-H (Core Capable)","3-in HDMI switcher endpoint","qsys","sm"]],
+  matrix:[
+    ["Extron","DXP 44 HD 4K PLUS","4×4 HDMI matrix","extron","sm"],
+    ["Extron","DXP 84 HD 4K PLUS","8×4 HDMI matrix","extron","m"],
+    ["Extron","DXP 88 HD 4K PLUS","8×8 HDMI matrix","extron","m"],
+    ["Extron","DXP 168 HD 4K PLUS","16×8 HDMI matrix","extron","ml"],
+    ["Extron","DXP 1616 HD 4K PLUS","16×16 HDMI matrix","extron","l"],
+    ["Crestron","DM-MD8X8-CPU3","DigitalMedia 8×8 card frame","crestron","m"],
+    ["Crestron","DM-MD16X16-CPU3","DigitalMedia 16×16 card frame","crestron","l"],
+    ["Crestron","DM-MD32X32-CPU3","DigitalMedia 32×32 card frame","crestron","l"],
+    ["Atlona","AT-UHD-PRO3-66M","6×6 4K HDBaseT matrix","atlona","m"],
+    ["Atlona","AT-UHD-PRO3-88M","8×8 4K HDBaseT matrix","atlona","ml"],
+    ["Kramer","VS-88H2","8×8 4K HDMI matrix","*","m"]],
+
+  // ---- Audio processing ----
+  dsp_open:[
+    ["Shure","IntelliMix P300","Conferencing DSP for Shure mics, AEC, USB","*","sm"],
+    ["Biamp","TesiraFORTÉ X 400","Open-arch DSP, AEC, Dante, USB","*","sm"],
+    ["Biamp","TesiraFORTÉ X 800","Open-arch DSP, 8-ch AEC","*","m"],
+    ["Biamp","TesiraFORTÉ X 1600","Open-arch DSP, high channel count","*","ml"],
+    ["Biamp","TesiraSERVER-IO","Modular server-class DSP","*","l"],
+    ["Q-SYS","Core Nano","Network-only Q-SYS core (Dante/AES67/Q-LAN)","qsys","sm"],
+    ["Q-SYS","Core 8 Flex","Q-SYS core with analog/GPIO I/O","qsys","sm"],
+    ["Q-SYS","Core 110f","Q-SYS core with on-board I/O","qsys","m"],
+    ["Q-SYS","Core 24f","Q-SYS core, mid-scale","qsys","ml"],
+    ["Q-SYS","Core 510i","Q-SYS core, large-scale, I/O cards","qsys","l"],
+    ["Symetrix","Prism 4x4","Open-arch DSP, Dante","*","s"],
+    ["Symetrix","Prism 8x8","Open-arch DSP, Dante","*","sm"],
+    ["Symetrix","Prism 12x12","Open-arch DSP, Dante","*","m"],
+    ["Symetrix","Radius NX 12x8","Open-arch DSP, Dante, AEC options","*","m"]],
+  dsp_small:[
+    ["Shure","IntelliMix P300","Compact AEC DSP, Dante + USB","*","s"],
+    ["Symetrix","Prism 4x4","Compact open-arch DSP","*","s"],
+    ["Biamp","TesiraFORTÉ X 400","Compact DSP","*","sm"],
+    ["Q-SYS","Core Nano","Small Q-SYS core","qsys","s"]],
+
+  // ---- Amplifiers ----
+  amp:[
+    ["QSC","SPA2-60","2×60 W @ 4/8 Ω, low-Z","*","s"],
+    ["QSC","SPA2-200","2×200 W, 70/100 V or low-Z","*","sm"],
+    ["QSC","SPA4-100","4×100 W @ 8 Ω, low-Z","*","sm"],
+    ["QSC","MP-A40V","Mixer-amp, 40 W 70/100 V","*","s"],
+    ["Q-SYS","CX-Q 2K4","4×500 W network amp, 70 V capable","qsys","m"],
+    ["Q-SYS","CX-Q 4K4","4×1000 W network amp","qsys","ml"],
+    ["Q-SYS","CX-Q 8K4","4×2000 W network amp","qsys","l"],
+    ["Crestron","AMP-X300","300 W 70/100 V or 4/8 Ω","crestron","sm"],
+    ["Crestron","AMP-2210T","2×100 W, 70/100 V","crestron","sm"],
+    ["Crestron","AMP-8075","8×75 W multi-channel amp","crestron","m"],
+    ["Extron","XPA 2001-70V","200 W 70 V mono amp","extron","sm"],
+    ["Extron","NetPA U 1002","2×100 W Dante amp","extron","s"],
+    ["Extron","NetPA U 1004","4×100 W Dante amp","extron","sm"],
+    ["Biamp","Tesira AMP-450BP","4-ch PoE+ powered AVB amp","*","s"],
+    ["Powersoft","Quattrocanali 4804 DSP+D","4×1200 W install amp, Dante","*","l"]],
+
+  // ---- Loudspeakers ----
+  spk_ceiling:[
+    ["QSC","AD-C4T","4.5\" ceiling, 70/100 V","*","s"],
+    ["QSC","AD-C6T","6.5\" ceiling, 70/100 V taps","*","sm"],
+    ["JBL","Control 24CT","4\" ceiling, 70/100 V","*","s"],
+    ["JBL","Control 26CT","6.5\" ceiling, 70/100 V","*","sm"],
+    ["JBL","Control 47C/T","6.5\" coax ceiling, 70/100 V","*","ml"],
+    ["Biamp","Desono C-IC6","6.5\" ceiling, 70 V","*","sm"],
+    ["Crestron","SAROS IC6T","6.5\" ceiling, 70/100 V","crestron","sm"],
+    ["Crestron","SAROS IC8T","8\" ceiling, 70/100 V","crestron","ml"],
+    ["JBL","Control 64P/T","Pendant, 70/100 V (open/high ceilings)","*","ml"],
+    ["QSC","AD-P6T","Pendant, 70/100 V","*","ml"]],
+  spk_wall:[
+    ["QSC","AD-S4T","4.5\" surface, 70/100 V","*","s"],
+    ["QSC","AD-S6T","6.5\" surface, 70/100 V","*","sm"],
+    ["JBL","Control 25-1","5.25\" surface speaker","*","s"],
+    ["JBL","Control 28-1","8\" surface speaker","*","ml"],
+    ["Biamp","Desono EX-S6","6.5\" surface speaker","*","sm"]],
+  spk_line:[
+    ["JBL","CBT 50LA-1","Constant-beamwidth column","*","m"],
+    ["JBL","CBT 70J-1","Constant-beamwidth column","*","ml"],
+    ["QSC","AcousticDesign AD-S.SUB + AD-S28Tw","Install PA package","*","ml"],
+    ["Bose Professional","Panaray MSA12X","Steerable array column","*","l"],
+    ["Renkus-Heinz","IC Live series","Digitally steerable array","*","l"]],
+
+  // ---- Microphones ----
+  mic_ceiling:[
+    ["Shure","MXA920","Ceiling array, automatic coverage","*","ml"],
+    ["Shure","MXA910","Ceiling array","*","ml"],
+    ["Shure","MXA902","Ceiling array with integrated speaker","*","sm"],
+    ["Sennheiser","TeamConnect Ceiling 2","Beamforming ceiling array","*","ml"],
+    ["Sennheiser","TeamConnect Ceiling Medium","Beamforming ceiling array, smaller rooms","*","sm"],
+    ["Biamp","Parlé TCM-X","Ceiling beam-tracking mic","*","sm"],
+    ["Biamp","Parlé TCM-XA","Ceiling beam-tracking mic with speaker","*","s"],
+    ["Audio-Technica","ATND1061","Beamforming ceiling array","*","ml"],
+    ["Q-SYS","NM-T1","Network ceiling mic","qsys","sm"]],
+  mic_table:[
+    ["Shure","MXA310","Table array","*","sm"],
+    ["Shure","MXA710","Linear array (table or wall)","*","sm"],
+    ["Biamp","Parlé TTM-X","Table mic","*","s"],
+    ["Shure","MX395","Low-profile boundary mic","*","s"],
+    ["Shure","MX392","Boundary mic","*","s"]],
+  mic_goose:[
+    ["Shure","MX412","12\" gooseneck","*","sm"],
+    ["Shure","MX418","18\" gooseneck","*","sm"],
+    ["Shure","Microflex Complete","Gooseneck delegate system","*","l"],
+    ["Audio-Technica","ES925","Gooseneck","*","sm"]],
+  mic_wireless:[
+    ["Shure","SLX-D","Digital wireless (handheld/lav/headset)","*","sm"],
+    ["Shure","ULX-D","Pro digital wireless, Dante","*","ml"],
+    ["Shure","Axient Digital","Flagship digital wireless","*","l"],
+    ["Shure","MXW","Microflex Wireless conferencing","*","ml"],
+    ["Sennheiser","EW-DX","Digital wireless","*","sm"],
+    ["Sennheiser","SpeechLine Digital Wireless","Digital wireless for speech","*","ml"]],
+  ald:[
+    ["Listen Technologies","ListenIR","IR assistive listening","*","ml"],
+    ["Listen Technologies","ListenEverywhere","Wi-Fi assistive listening","*","sml"],
+    ["Listen Technologies","ListenRF","RF assistive listening","*","sm"],
+    ["Williams AV","FM Plus","FM assistive listening","*","sm"],
+    ["Williams AV","Digi-Wave","Digital RF assistive listening","*","sm"]],
+
+  // ---- Conferencing / cameras ----
+  vc_teams:[
+    ["Logitech","Rally Bar Huddle","Video bar for huddle rooms","*","s"],
+    ["Logitech","Rally Bar Mini","Video bar for small rooms","*","s"],
+    ["Logitech","Rally Bar","Video bar for medium rooms","*","sm"],
+    ["Poly","Studio X30","Video bar for small rooms","*","s"],
+    ["Poly","Studio X52","Video bar","*","sm"],
+    ["Poly","Studio X72","Video bar for larger rooms","*","m"],
+    ["Neat","Neat Bar","Video bar","*","s"],
+    ["Neat","Neat Bar Pro","Video bar","*","sm"],
+    ["Yealink","MeetingBar A20","Video bar","*","s"],
+    ["Yealink","MeetingBar A30","Video bar","*","s"],
+    ["Yealink","MeetingBar A40","Video bar","*","sm"],
+    ["Crestron","Flex UC-C/UC-B series","Teams/Zoom room kit","crestron","sm"]],
+  vc_compute:[
+    ["Logitech","RoomMate + Tap IP","Appliance compute for larger rooms","*","ml"],
+    ["Crestron","UC-ENGINE","Teams/Zoom room compute","crestron","ml"],
+    ["Q-SYS","NC-Series + Core","Q-SYS native UC","qsys","ml"],
+    ["Lenovo","ThinkSmart Core","Teams Room compute","*","ml"]],
+  cam_ptz:[
+    ["Logitech","Rally Camera","PTZ, USB","*","sm"],
+    ["Q-SYS","NC-12x80","12× PTZ network camera","qsys","m"],
+    ["Q-SYS","NC-20x60","20× PTZ network camera","qsys","ml"],
+    ["Crestron","1 Beyond i12","PTZ, auto-tracking","crestron","m"],
+    ["Crestron","1 Beyond i20","20× PTZ, auto-tracking","crestron","ml"],
+    ["Vaddio","RoboSHOT 12E HDBT","12× PTZ, HDBaseT","*","m"],
+    ["Vaddio","RoboSHOT 20 UHD","20× 4K PTZ","*","ml"],
+    ["Panasonic","AW-UE40","4K PTZ","*","m"],
+    ["Panasonic","AW-UE80","4K PTZ, NDI","*","ml"],
+    ["Sony","SRG-X400","4K PTZ","*","ml"],
+    ["AVer","CAM520 Pro3","PTZ, PoE/USB","*","sm"],
+    ["Huddly","L1","Intelligent wide, AI framing","*","sm"]],
+  cam_fixed:[
+    ["Huddly","IQ","Fixed wide-angle, AI framing, USB","*","s"],
+    ["Logitech","Sight","Tabletop 315° AI companion camera","*","sm"],
+    ["Poly","EagleEye Cube","Fixed USB camera","*","s"],
+    ["AVer","CAM340+","4K fixed wide, USB","*","s"]],
+  cam_intel:[
+    ["Huddly","L1","Intelligent wide, AI framing, IP/PoE","*","sm"],
+    ["Logitech","Rally Camera","PTZ with auto-framing","*","sm"],
+    ["Poly","EagleEye Director II","Dual-camera speaker tracking","*","m"],
+    ["Crestron","1 Beyond i12","Auto-tracking PTZ","crestron","m"],
+    ["Q-SYS","NC-20x60","PTZ with Q-SYS Seervision tracking","qsys","ml"]],
+  cam_bar:[
+    ["Logitech","Rally Bar Huddle","Video bar: camera + mics + speakers","*","s"],
+    ["Logitech","Rally Bar Mini","Video bar: camera + mics + speakers","*","s"],
+    ["Logitech","Rally Bar","Video bar: camera + mics + speakers","*","sm"],
+    ["Poly","Studio X30","Video bar","*","s"],
+    ["Poly","Studio X52","Video bar","*","sm"],
+    ["Poly","Studio X72","Video bar for larger rooms","*","m"],
+    ["Neat","Neat Bar","Video bar","*","s"],
+    ["Neat","Neat Bar Pro","Video bar","*","sm"],
+    ["Yealink","MeetingBar A30","Video bar","*","s"],
+    ["Yealink","MeetingBar A40","Video bar","*","sm"]],
+  usb_bridge:[
+    ["Logitech","Swytch","BYOD laptop link to room cameras/mics","*","sm"],
+    ["Vaddio","OneLINK Bridge","USB/HDMI bridge for room cameras and audio","*","m"],
+    ["Q-SYS","NV-32-H / I/O-USB Bridge","USB bridge to Q-SYS","qsys","sm"],
+    ["Crestron","AirMedia AM-3200 (USB)","Wired/wireless BYOD conferencing","crestron","sm"]],
+
+  // ---- Sources ----
+  wireless:[
+    ["Barco","ClickShare C-10","Wireless presentation, huddle","*","s"],
+    ["Barco","ClickShare CX-20","Wireless conferencing, small rooms","*","s"],
+    ["Barco","ClickShare CX-30","Wireless conferencing, medium rooms","*","sm"],
+    ["Barco","ClickShare CX-50 Gen 2","Wireless conferencing, large rooms","*","ml"],
+    ["Crestron","AirMedia AM-3200","Wireless presentation","crestron","sm"],
+    ["Mersive","Solstice Pod","Wireless collaboration","*","sml"],
+    ["Extron","ShareLink Pro 1100","Wireless collaboration gateway","extron","sm"]],
+  pc:[
+    ["Dell","OptiPlex Micro","Small form-factor room PC","*","sml"],
+    ["Lenovo","ThinkCentre M90q Tiny","Small form-factor room PC","*","sml"],
+    ["HP","Elite Mini","Small form-factor room PC","*","sml"]],
+  player:[
+    ["BrightSign","XT1145","4K signage/media player","*","ml"],
+    ["BrightSign","HD225","HD media player","*","s"],
+    ["BrightSign","LS445","4K signage player, compact","*","sm"]],
+  iptv:[
+    ["Exterity","AvediaPlayer","IPTV decoder","*","sml"],
+    ["VITEC","EZ TV","IPTV / cable STB","*","sml"]],
+  doccam:[
+    ["Elmo","MX-P3","4K document camera","*","sm"],
+    ["IPEVO","VZ-X","Document camera","*","s"],
+    ["Lumens","DC-F80","4K document camera","*","m"]],
+
+  // ---- Control ----
+  touch:[
+    ["Crestron","TSW-570","5\" touch panel","crestron","s"],
+    ["Crestron","TSW-770","7\" touch panel","crestron","sm"],
+    ["Crestron","TSW-1070","10\" touch panel","crestron","ml"],
+    ["Extron","TLP Pro 525T","5\" tabletop touch panel","extron","s"],
+    ["Extron","TLP Pro 725T","7\" tabletop touch panel","extron","sm"],
+    ["Extron","TLP Pro 1025T","10\" tabletop touch panel","extron","ml"],
+    ["Q-SYS","TSC Series G3 (7\"/10\")","Q-SYS touch screen controller","qsys","sml"],
+    ["AMX","Varia series","Touch panel","*","sml"]],
+  keypad:[
+    ["Extron","MLC Plus 100","MediaLink controller","extron","s"],
+    ["Extron","MLC Plus 200","MediaLink controller with volume knob","extron","s"],
+    ["Crestron","HZ-KPCN series","Horizon keypad","crestron","s"]],
+  processor:[
+    ["Crestron","CP4N","Control processor","crestron","ml"],
+    ["Crestron","MC4-R","Room control processor","crestron","s"],
+    ["Crestron","RMC4","Room media controller","crestron","sm"],
+    ["Extron","IPCP Pro 250 xi","IP Link Pro control processor","extron","s"],
+    ["Extron","IPCP Pro 350 xi","IP Link Pro control processor","extron","sm"],
+    ["Extron","IPCP Pro 550 xi","IP Link Pro control processor, large","extron","ml"],
+    ["Q-SYS","Core (control built-in)","Control runs on the Q-SYS Core","qsys","sml"],
+    ["AMX","NX-1200","NetLinx NX integrated controller","*","sm"],
+    ["AMX","NX-2200","NetLinx NX integrated controller","*","ml"]],
+  scheduler:[
+    ["Crestron","TSS-770","Room scheduling panel","crestron","sml"],
+    ["Crestron","TSS-1070","10\" room scheduling panel","crestron","ml"],
+    ["Logitech","Tap Scheduler","Teams/Zoom scheduling panel","*","sml"],
+    ["Poly","TC10","Touch controller / scheduler","*","sm"]],
+  occupancy:[
+    ["Crestron","GLS-ODT-C-CN","Dual-tech ceiling occupancy sensor","crestron","sml"],
+    ["Crestron","GLS-OIR-C-CN","PIR ceiling occupancy sensor","crestron","sml"]],
+
+  // ---- Displays ----
+  panel:[
+    ["Samsung","QMC series","4K commercial display, 43–98\"","*","sml"],
+    ["Samsung","QHC series","4K high-brightness commercial display","*","ml"],
+    ["LG","UH5N-E series","4K commercial display","*","sml"],
+    ["LG","UM5N series","4K commercial display","*","sm"],
+    ["Sony","BRAVIA Professional BZ series","4K pro display","*","sml"],
+    ["NEC/Sharp","MultiSync M series","4K commercial display","*","sml"],
+    ["NEC/Sharp","MultiSync P series","4K premium commercial display","*","ml"]],
+  projector:[
+    ["Epson","Pro L series laser","WUXGA/4K laser projector","*","ml"],
+    ["Epson","PowerLite L series","Laser projector, classrooms","*","sm"],
+    ["Panasonic","PT-RZ series","Laser projector","*","ml"],
+    ["Panasonic","PT-REZ series","Laser projector, high brightness","*","l"],
+    ["Sony","VPL-PHZ series","Laser projector","*","sm"],
+    ["Da-Lite / Draper","Tensioned motorized screen","Projection screen","*","sml"]],
+  led:[
+    ["Absen","Acclaim series","Fine-pitch LED","*","ml"],
+    ["Samsung","The Wall / IWA","Fine-pitch LED","*","l"],
+    ["LG","LAEC all-in-one","All-in-one LED display","*","ml"],
+    ["Planar","DirectLight Pro series","Fine-pitch LED","*","l"]],
+  interactive:[
+    ["Samsung","WAD Flip series","Interactive display","*","sm"],
+    ["SMART","Board MX series","Interactive display","*","sm"],
+    ["Promethean","ActivPanel series","Interactive display","*","sm"],
+    ["Microsoft","Surface Hub 3","Teams interactive display","*","sm"]],
+
+  // ---- Table / infrastructure ----
+  tableinput:[
+    ["Extron","Cable Cubby 600","Table cable access enclosure","extron","s"],
+    ["Extron","Cable Cubby 1202","Large table cable access enclosure","extron","m"],
+    ["Crestron","FT2-600","FlipTop table box","crestron","s"],
+    ["Crestron","FT2-1200","FlipTop table box, large","crestron","m"],
+    ["Legrand/AVTX","TBX/Evolution series","Table box","*","sm"]],
+  rack:[
+    ["Middle Atlantic","DWR wall rack","Wall-mount equipment rack","*","s"],
+    ["Middle Atlantic","Forward credenza (FWD)","Credenza equipment rack","*","sm"],
+    ["Middle Atlantic","BGR floor rack","Floor-standing equipment rack","*","ml"],
+    ["Middle Atlantic","UPS-OL series","Rack UPS / power","*","sml"],
+    ["Furman","CN series","Power conditioner","*","sml"]]
+};
+// Inputs × outputs for switchers and matrices (used to pick the smallest model that fits)
+const IO = {
+  "VS-211X":[2,1],"SW2 HD 4K PLUS":[2,1],"SW4 HD 4K PLUS":[4,1],"AT-UHD-SW-510W":[5,1],"HD-PS401":[4,1],"HD-PS402":[4,2],"HD-PS621":[6,1],"HD-PS622":[6,2],
+  "IN1606":[6,1],"IN1608 xi":[8,2],"AT-OME-PS62":[6,2],"AT-OME-MS52W":[5,2],"NV-32-H (Core Capable)":[3,1],
+  "DXP 44 HD 4K PLUS":[4,4],"DXP 84 HD 4K PLUS":[8,4],"DXP 88 HD 4K PLUS":[8,8],"DXP 168 HD 4K PLUS":[16,8],"DXP 1616 HD 4K PLUS":[16,16],
+  "DM-MD8X8-CPU3":[8,8],"DM-MD16X16-CPU3":[16,16],"DM-MD32X32-CPU3":[32,32],"AT-UHD-PRO3-66M":[6,6],"AT-UHD-PRO3-88M":[8,8],"VS-88H2":[8,8]
+};
+// Approximate total output power (W) for amplifiers
+const AMPW = {
+  "SPA2-60":120,"SPA2-200":400,"SPA4-100":400,"MP-A40V":40,"CX-Q 2K4":2000,"CX-Q 4K4":4000,"CX-Q 8K4":8000,
+  "AMP-X300":300,"AMP-2210T":200,"AMP-8075":600,"XPA 2001-70V":200,"NetPA U 1002":200,"NetPA U 1004":400,"Quattrocanali 4804 DSP+D":4800
 };
 // AEC channel capacity by DSP model ("sw" = software AEC that scales with the platform/licensing)
-const AEC_CAP = {"TesiraFORTÉ X 400":4,"TesiraFORTÉ X 800":8,"IntelliMix P300":8,"Core Nano":"sw","Core 8 Flex":"sw"};
+const AEC_CAP = {"TesiraFORTÉ X 400":4,"TesiraFORTÉ X 800":8,"IntelliMix P300":8,"Core Nano":"sw","Core 8 Flex":"sw","Core 110f":"sw","Core 24f":"sw","Core 510i":"sw"};
 // Network port by model. Absent = no network connection on that model.
 const NETPORT = {
   "HD-PS622":"LAN","HD-PS402":"LAN","IN1608 xi":"LAN","IN1606":"LAN","AT-OME-PS62":"LAN","NV-32-H (Core Capable)":"Q-LAN",
   "DXP 84 HD 4K PLUS":"LAN","DXP 88 HD 4K PLUS":"LAN","DXP 168 HD 4K PLUS":"LAN","AT-UHD-PRO3-88M":"LAN",
   "AMP-X300":"LAN","CX-Q 2K4":"Q-LAN","NetPA U 1004":"PoE+ · Dante",
   "MXA920":"PoE · Dante","MXA310":"PoE · Dante","TeamConnect Ceiling 2":"PoE · Dante","Parlé TCM-X":"PoE · network audio","NM-T1":"PoE · Q-LAN","ULX-D":"Dante",
-  "TesiraFORTÉ X 400":"Dante · LAN","TesiraFORTÉ X 800":"Dante · LAN","IntelliMix P300":"PoE · Dante","Core Nano":"Q-LAN","Core 8 Flex":"Q-LAN"
+  "TesiraFORTÉ X 400":"Dante · LAN","TesiraFORTÉ X 800":"Dante · LAN","IntelliMix P300":"PoE · Dante","Core Nano":"Q-LAN","Core 8 Flex":"Q-LAN",
+  "HD-PS401":"LAN","HD-PS621":"LAN","DXP 44 HD 4K PLUS":"LAN","DXP 1616 HD 4K PLUS":"LAN","DM-MD8X8-CPU3":"LAN","DM-MD16X16-CPU3":"LAN","DM-MD32X32-CPU3":"LAN","AT-UHD-PRO3-66M":"LAN","VS-88H2":"LAN",
+  "CX-Q 4K4":"Q-LAN","CX-Q 8K4":"Q-LAN","NetPA U 1002":"PoE+ · Dante","Tesira AMP-450BP":"PoE+ · AVB","Quattrocanali 4804 DSP+D":"Dante · LAN",
+  "MXA910":"PoE · Dante","MXA902":"PoE+ · Dante","MXA710":"PoE · Dante","TeamConnect Ceiling Medium":"PoE · Dante","Parlé TCM-XA":"PoE+ · network audio","Parlé TTM-X":"PoE · network audio","ATND1061":"PoE · Dante","Axient Digital":"Dante","MXW":"Dante",
+  "TesiraFORTÉ X 1600":"Dante · LAN","TesiraSERVER-IO":"LAN · network audio","Core 110f":"Q-LAN","Core 24f":"Q-LAN","Core 510i":"Q-LAN",
+  "Prism 4x4":"Dante · LAN","Prism 8x8":"Dante · LAN","Prism 12x12":"Dante · LAN","Radius NX 12x8":"Dante · LAN"
 };
 // Switchers/matrices whose outputs are HDBaseT (they are the transmitter). Others need a separate Tx.
 const HDBT_OUT = new Set(["HD-PS622","HD-PS402","IN1608 xi","AT-OME-PS62","AT-UHD-PRO3-88M"]);
@@ -502,6 +820,9 @@ function checks(){
       else if(cap==="sw") n.push(`${esc(m)}: confirm Q-SYS AEC licensing covers ${ch} channel(s).`); }
     if(!S.audio.mics.length) n.push("AEC is on but no microphones are listed.");
   }
+  { const L=items(), c=L.find(i=>i.key==="core");
+    if(c && S.picks.core!==CUSTOM){ const p=pickOf(c); if(fits(c,p)===false) n.push(`${esc(p[1])} is ${IO[p[1]].join("×")} but the design needs ${S.sources.length}×${S.displays.length} — pick a larger model, or switch to AV over IP.`); }
+  }
   if(S.audio.assist) n.push("Assistive listening: confirm ADA receiver quantity for occupancy.");
   if(S.infra.network==="Unknown") n.push("Network approach not confirmed with IT.");
   return n;
@@ -564,7 +885,8 @@ function items(){
   const nSpk=+a.speakerCount || (S.project.length&&S.project.width?Math.max(2,Math.ceil(S.project.length*S.project.width/150)):0);
   if(spkMap[a.speakers]){
     add("spk","Audio",a.speakers+" speakers",spkMap[a.speakers],nSpk||"TBD",a.speakerCount?"":"estimated from room size");
-    const amp=ampSize(nSpk); add("amp","Audio","Amplifier","amp",amp.qty,amp.note);
+    const amp=ampSize(nSpk), pm=pickOf({key:"amp",catKey:"amp"})[1], aw=AMPW[pm], need=ampNeedW();
+    add("amp","Audio","Amplifier","amp",aw&&nSpk?Math.max(1,Math.ceil(need/aw)):amp.qty,amp.note+(aw&&nSpk?` · ${pm} ≈ ${aw} W`:""));
   }
   if(a.assist) add("ald","Audio","Assistive listening","ald",1,"qty receivers per ADA occupancy table");
   // Cameras: one line per camera type (qty), each with its own model picker
@@ -606,17 +928,36 @@ function hdbtPlan(core,L){
   return {per, tx:per.filter(p=>p.tx).length, rx:per.filter(p=>p.rx).length, swTx,
     txNote: "at the rack; HDMI from the switcher"};
 }
+function spkCount(){ return +S.audio.speakerCount || (S.project.length&&S.project.width?Math.max(2,Math.ceil(S.project.length*S.project.width/150)):0); }
+function ampNeedW(){ const n=spkCount(), tap=S.audio.speakers==="Line array / PA"?60:15; return Math.ceil(n*tap*1.25); }
 function ampSize(n){
   if(!n) return {qty:1,note:"size once speaker count is known"};
   const tap=S.audio.speakers==="Line array / PA"?60:15, need=Math.ceil(n*tap*1.25);
   if(n<=4 && S.audio.speakers!=="Line array / PA") return {qty:1,note:`${n} spkrs — low-Z possible; or 70 V @ ${tap} W taps ≈ ${need} W`};
   return {qty:Math.max(1,Math.ceil(need/300)),note:`70 V: ${n} × ${tap} W taps × 1.25 headroom ≈ ${need} W`};
 }
+// Room scale: s = huddle/small, m = conference/classroom, l = auditorium/campus/large
+function roomScale(){
+  const nS=S.sources.length, nD=S.displays.length, rt=S.project.roomType||"", seats=+S.project.seats||0;
+  if(/Auditorium|Multi-room|Divisible/.test(rt) || nD>4 || nS>8 || seats>60) return "l";
+  if(rt==="Huddle room" || (nD<=1 && nS<=2 && (!seats || seats<=6))) return "s";
+  return "m";
+}
+const SCALE_NAME={s:"small",m:"medium",l:"large"};
+// Order: preferred brand first, then products sized for this room; catalog order otherwise
 function choices(catKey){
-  const eco=S.infra.eco||"auto", list=CAT[catKey]||[];
-  if(eco==="auto") return list;
-  const pref=list.filter(p=>p[3]===eco), rest=list.filter(p=>p[3]!==eco);
-  return [...pref,...rest];
+  const eco=S.infra.eco||"auto", sc=roomScale(), list=CAT[catKey]||[];
+  const score=p=>(eco!=="auto"&&p[3]!==eco&&p[3]!=="*"?2:0)+(eco!=="auto"&&p[3]==="*"?1:0)+((p[4]||"sml").includes(sc)?0:3);
+  return list.map((p,i)=>[p,i]).sort((a,b)=>score(a[0])-score(b[0])||a[1]-b[1]).map(x=>x[0]);
+}
+// Does a catalog entry have the capacity this design needs? (true = fits, false = too small, null = unknown)
+function fits(it,p){
+  const m=p[1];
+  if(it.key==="core" && IO[m]){ const [i,o]=IO[m]; return i>=S.sources.length && o>=S.displays.length; }
+  if(it.key==="core") return null;
+  if(it.key==="dsp" && aecOn()){ const c=AEC_CAP[m]; return c==="sw"?true:typeof c==="number"?c>=aecChannels():null; }
+  if(it.key==="amp" && AMPW[m]) return AMPW[m]>=ampNeedW();
+  return true;
 }
 function aecCapText(model){ const c=AEC_CAP[model]; return c==="sw"?"software AEC (scales with licensing)":c?c+"-ch AEC":"no AEC listed"; }
 const CUSTOM="__custom__";
@@ -624,7 +965,8 @@ function pickOf(it){
   if(it.extra) return [it.extra.brand||"",it.extra.model||"",it.extra.desc||"","*"];
   const saved=S.picks[it.key];
   if(saved===CUSTOM){ const c=(S.custom||{})[it.key]||{}; return [c.brand||"Custom",c.model||"",c.desc||"","*"]; }
-  const ch=choices(it.catKey); return ch.find(p=>p[0]+" "+p[1]===saved)||ch[0];
+  const ch=choices(it.catKey), hit=ch.find(p=>p[0]+" "+p[1]===saved); if(hit) return hit;
+  return ch.find(p=>fits(it,p)===true)||ch.find(p=>fits(it,p)===null)||ch[0];
 }
 function setPick(k,v){ S.picks[k]=v; if(v===CUSTOM){ S.custom=S.custom||{}; S.custom[k]=S.custom[k]||{brand:"",model:"",desc:""}; } save(); render(); }
 function addExtra(){ S.extras=S.extras||[]; S.extras.push({id:uid(),cat:"Other",role:"",brand:"",model:"",desc:"",qty:1,note:""}); save(); render();
@@ -644,7 +986,7 @@ function bom(){
     const cust=isC?`<div class="cust"><input placeholder="Brand" data-k="custom.${it.key}.brand" data-rc="1" value="${esc(S.custom[it.key].brand)}"><input placeholder="Model" data-k="custom.${it.key}.model" data-rc="1" value="${esc(S.custom[it.key].model)}"></div><input placeholder="Description (optional)" data-k="custom.${it.key}.desc" data-rc="1" value="${esc(S.custom[it.key].desc)}">`:"";
     return `<tr><td class="cat">${it.cat}</td><td class="itm"><b>${esc(it.role)}</b><br>${sel}${cust}<div class="q" style="margin:0;font-size:.78rem">${p&&!isC?esc(p[2]):""}${p&&it.key==="dsp"?(isC?"":" · ")+"<b>"+(isC?"AEC capacity: confirm on spec sheet":aecCapText(p[1]))+"</b>":""}</div></td><td class="c qty">×${it.qty}</td><td class="nt">${esc(it.note)}</td></tr>`;
   }).join("");
-  return `<div class="noprint" style="margin-bottom:.4rem;font-size:.85rem;color:var(--mute)">Ecosystem: <select style="width:auto" onchange="S.infra.eco=this.value;save();render()">${Object.entries(ECOS).map(([k,v])=>`<option value="${k}" ${S.infra.eco==k?"selected":""}>${v}</option>`).join("")}</select> · pick a model on any line</div>
+  return `<div class="noprint" style="margin-bottom:.4rem;font-size:.85rem;color:var(--mute)">Ecosystem: <select style="width:auto" onchange="S.infra.eco=this.value;save();render()">${Object.entries(ECOS).map(([k,v])=>`<option value="${k}" ${S.infra.eco==k?"selected":""}>${v}</option>`).join("")}</select> · defaults sized for a <b>${SCALE_NAME[roomScale()]}</b> room · pick a model on any line</div>
   <div style="overflow-x:auto"><table class="bom"><tr class="hd"><th>Category</th><th>Item / model</th><th class="c">Qty</th><th>Notes</th></tr>${rows}</table></div>
   <div class="addrow noprint"><button onclick="addExtra()">＋ Add custom item</button></div>
   <div class="noprint" style="margin-top:.5rem"><button onclick="exportCSV()">Download BOM (CSV)</button></div>
@@ -1041,23 +1383,26 @@ function diagram(){
   ob(W-480,4,480,22); ob(14,4,420,28); // legend, title
   const PLACED=[];
   const hit=(a,b)=>Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
-  LBL.forEach(L=>{
+  LBL.forEach(L0=>{ const full=place(L0); if(full.bs===0 || !L0.t.includes(" · ")){ commit(L0,full); return; }
+    const short={...L0,t:L0.t.split(" · ")[0]}, alt=place(short); commit(alt.bs<full.bs?short:L0, alt.bs<full.bs?alt:full); });
+  function commit(L,{best}){ if(!best) return; OB.push(best.r); PLACED.push({t:L.t,c:L.c,x:best.x,y:best.y,anchor:best.anchor,w:best.r.w,ry:best.r.y,rx:best.r.x});
+    g+=`<text x="${best.x}" y="${best.y}" text-anchor="${best.anchor}" fill="${L.c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(L.t)}</text>`; }
+  function place(L){
     const w=L.t.length*5.3+6, h=11, cand=[];
     [...L.segs].sort((p,q)=>(q.b-q.a)-(p.b-p.a)).forEach(sg=>{
       const ts=[.5,.3,.7,.15,.85,.05,.95,.4,.6,.22,.78];
-      for(const dist of [0,1,2,3]) for(const t of ts){   // first hug the line, then step further out
-        if(sg.o==="h"){ const x=sg.a+(sg.b-sg.a)*t; if(sg.b-sg.a<w+6 && t!==.5) continue; const up=[-4,-16,-28,-40][dist], dn=[11,24,36,48][dist];
+      for(const dist of [0,1,2,3,4,5]) for(const t of ts){   // first hug the line, then step further out
+        if(sg.o==="h"){ const x=sg.a+(sg.b-sg.a)*t; if(sg.b-sg.a<w+6 && t!==.5) continue; const up=[-4,-16,-28,-40,-52,-64][dist], dn=[11,24,36,48,60,72][dist];
           cand.push({x,y:sg.k+up,anchor:"middle",r:{x:x-w/2,y:sg.k+up-10,w,h}}, {x,y:sg.k+dn,anchor:"middle",r:{x:x-w/2,y:sg.k+dn-9,w,h}}); }
-        else { const y=sg.a+(sg.b-sg.a)*t; if(sg.b-sg.a<16) continue; const o=[5,14,26,40][dist];
+        else { const y=sg.a+(sg.b-sg.a)*t; if(sg.b-sg.a<16) continue; const o=[5,14,26,40,56,72][dist];
           cand.push({x:sg.k+o,y:y+3,anchor:"start",r:{x:sg.k+o-2,y:y-6,w,h}}, {x:sg.k-o,y:y+3,anchor:"end",r:{x:sg.k-o+2-w,y:y-6,w,h}}); }
       }
     });
-    if(!cand.length) return;
+    if(!cand.length) return {best:null,bs:1e18};
     let best=null, bs=1e18;
     for(const cd of cand){ const sc=OB.reduce((a,o)=>a+hit(cd.r,o),0)+(cd.r.x<0||cd.r.x+cd.r.w>W?1e6:0); if(sc<bs){ bs=sc; best=cd; if(sc===0) break; } }
-    OB.push(best.r); PLACED.push({t:L.t,c:L.c,x:best.x,y:best.y,anchor:best.anchor,w:best.r.w,ry:best.r.y,rx:best.r.x});
-    g+=`<text x="${best.x}" y="${best.y}" text-anchor="${best.anchor}" fill="${L.c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(L.t)}</text>`;
-  });
+    return {best,bs};
+  }
   LAST_LAYOUT={N,E,W,H,secs:[],zones,bw,bh,tags:TAGS,labels:PLACED,
     routes:R.filter(r=>r.pts).map(r=>({a:r.e.a,b:r.e.b,k:r.e.k,pts:r.pts}))};
   return g+"</svg>";
