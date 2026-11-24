@@ -341,7 +341,7 @@ Sketch(){
   <div class="diagram">${diagram()}</div><div class="hint noprint">Swipe the diagram sideways to see all of it →</div>
   <h3 style="font-size:1rem">Equipment sketch</h3>${bom()}
   <h3 style="font-size:1rem">Open items</h3>${(checks().map(n=>`<div class="note warn">${n}</div>`).join(""))||'<div class="note">No open flags.</div>'}
-  <div class="noprint" style="margin-top:1rem"><button class="pri" onclick="window.print()">Print / Save PDF</button> <button onclick="downloadSVG()">Download diagram (SVG)</button></div>`;
+  <div class="noprint" style="margin-top:1rem"><button class="pri" onclick="savePDF(this)">Save PDF</button> <button onclick="downloadSVG()">Download diagram (SVG)</button></div>`;
 }};
 
 // ---------- Logic ----------
@@ -551,12 +551,110 @@ function render(animate){
   document.getElementById("navbar").innerHTML =
     `<button class="back" onclick="go(${step-1})" ${step===0?"disabled":""} aria-label="Back">←</button>`+
     (step<last ? `<button class="pri" onclick="go(${step+1})">Next: ${STEPS[step+1]} →</button>`
-               : `<button class="pri" onclick="window.print()">Print / Save PDF</button>`);
+               : `<button class="pri" onclick="savePDF(this)">Save PDF</button>`);
 }
 function go(i){ if(i<0||i>=STEPS.length) return; S.visited=[...new Set([...(S.visited||[]),step])]; save(); step=i; render(true); window.scrollTo(0,0); }
 function exportJSON(){ dl(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}),(S.project.name||"av-design")+".json"); }
 function downloadSVG(){ dl(new Blob([diagram()],{type:"image/svg+xml"}),(S.project.name||"av-design")+".svg"); }
-function dl(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
+function dl(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.rel="noopener"; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},4000); }
+
+// ---------- PDF (built in-page; works in iOS home-screen mode where window.print() is unavailable) ----------
+const PW=2200, PH=1700, PM=110, FONT="system-ui,-apple-system,Segoe UI,Roboto,sans-serif";
+function loadImg(src){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
+function wrapText(x,text,maxW){
+  const out=[]; String(text||"").split("\n").forEach(par=>{ let line=""; par.split(" ").forEach(w=>{ const t=line?line+" "+w:w; if(x.measureText(t).width>maxW && line){ out.push(line); line=w; } else line=t; }); out.push(line); });
+  return out;
+}
+async function buildPDFBlob(){
+  const pages=[];
+  const newPage=()=>{ const c=document.createElement("canvas"); c.width=PW; c.height=PH; const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,PW,PH); x.textBaseline="top"; pages.push(c); return x; };
+  const title=S.project.name||"Untitled design";
+  const sub=[S.project.roomType,S.project.client,S.project.seats?S.project.seats+" seats":"",S.project.length&&S.project.width?S.project.length+"×"+S.project.width+" ft":""].filter(Boolean).join("  ·  ");
+  const head=(x,label)=>{
+    x.fillStyle="#0f1419"; x.font=`700 54px ${FONT}`; x.fillText(title,PM,PM);
+    x.fillStyle="#555"; x.font=`28px ${FONT}`; x.fillText(sub,PM,PM+70);
+    x.textAlign="right"; x.fillText(label+"   "+new Date().toLocaleDateString(),PW-PM,PM+14); x.textAlign="left";
+    x.strokeStyle="#4fb3ff"; x.lineWidth=4; x.beginPath(); x.moveTo(PM,PM+120); x.lineTo(PW-PM,PM+120); x.stroke();
+    return PM+150;
+  };
+  // Page 1: signal flow (landscape)
+  let x=newPage(); let y=head(x,"SIGNAL FLOW");
+  const img=await loadImg("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(diagram()));
+  const bw=PW-2*PM, bh=PH-y-PM-40, sc=Math.min(bw/img.width, bh/img.height);
+  const iw=img.width*sc, ih=img.height*sc;
+  x.drawImage(img,PM+(bw-iw)/2,y,iw,ih);
+  // Equipment list
+  x=newPage(); y=head(x,"EQUIPMENT LIST");
+  const cols=[["Category",.13],["Item",.20],["Brand / model",.27],["Qty",.07],["Notes",.33]];
+  const colX=[]; let cx0=PM; cols.forEach(([,w])=>{ colX.push(cx0); cx0+=w*(PW-2*PM); });
+  const colW=cols.map(([,w])=>w*(PW-2*PM)-24);
+  const header=()=>{ x.fillStyle="#f0f3f6"; x.fillRect(PM,y,PW-2*PM,52); x.fillStyle="#333"; x.font=`600 26px ${FONT}`; cols.forEach(([t],i)=>x.fillText(t,colX[i]+12,y+12)); y+=62; };
+  header();
+  items().forEach((it,n)=>{
+    const p=pickOf(it)||["","",""];
+    x.font=`26px ${FONT}`;
+    const cells=[it.cat,it.role,(p[0]+" "+p[1]).trim()+(p[2]?"\n"+p[2]:""),String(it.qty),it.note];
+    const lines=cells.map((c,i)=>wrapText(x,c,colW[i]));
+    const rh=Math.max(...lines.map(l=>l.length))*34+20;
+    if(y+rh>PH-PM-40){ x=newPage(); y=head(x,"EQUIPMENT LIST (cont.)"); header(); x.font=`26px ${FONT}`; }
+    if(n%2){ x.fillStyle="#fafbfc"; x.fillRect(PM,y-6,PW-2*PM,rh); }
+    lines.forEach((ls,i)=>ls.forEach((l,j)=>{ x.fillStyle=(i===2&&j>0)||i===4?"#666":"#111"; x.font=(i===2&&j===0)?`600 26px ${FONT}`:`26px ${FONT}`; x.fillText(l,colX[i]+12,y+4+j*34); }));
+    y+=rh; x.strokeStyle="#e3e7eb"; x.lineWidth=2; x.beginPath(); x.moveTo(PM,y-6); x.lineTo(PW-PM,y-6); x.stroke();
+  });
+  // Open items
+  const flags=checks().map(t=>t.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"'));
+  if(flags.length){
+    if(y+160>PH-PM){ x=newPage(); y=head(x,"OPEN ITEMS"); } else { y+=40; }
+    x.fillStyle="#0f1419"; x.font=`700 34px ${FONT}`; x.fillText("Open items",PM,y); y+=56;
+    x.font=`26px ${FONT}`;
+    flags.forEach(f=>{ const ls=wrapText(x,f,PW-2*PM-40); if(y+ls.length*34>PH-PM-40){ x=newPage(); y=head(x,"OPEN ITEMS (cont.)"); x.font=`26px ${FONT}`; }
+      x.fillStyle="#ffb454"; x.fillRect(PM,y+4,8,ls.length*34-8); x.fillStyle="#222"; ls.forEach((l,j)=>x.fillText(l,PM+30,y+j*34)); y+=ls.length*34+14; });
+  }
+  // Footers
+  pages.forEach((c,i)=>{ const g=c.getContext("2d"); g.fillStyle="#999"; g.font=`22px ${FONT}`; g.textBaseline="top"; g.fillText("AV Design Sketch — sketch only; verify models and standards before quoting.",PM,PH-PM+30); g.textAlign="right"; g.fillText(`Page ${i+1} of ${pages.length}`,PW-PM,PH-PM+30); });
+  // Assemble PDF: one full-page JPEG per landscape letter page (792×612 pt)
+  const enc=new TextEncoder(), parts=[], off=[]; let len=0;
+  const push=d=>{ const b=typeof d==="string"?enc.encode(d):d; parts.push(b); len+=b.length; };
+  const obj=(n,fn)=>{ off[n]=len; push(`${n} 0 obj\n`); fn(); push("\nendobj\n"); };
+  push(new Uint8Array([37,80,68,70,45,49,46,52,10,37,226,227,207,211,10]));
+  const n=pages.length, kids=pages.map((_,i)=>`${3+i*3} 0 R`).join(" ");
+  obj(1,()=>push("<< /Type /Catalog /Pages 2 0 R >>"));
+  obj(2,()=>push(`<< /Type /Pages /Kids [${kids}] /Count ${n} >>`));
+  pages.forEach((c,i)=>{
+    const b64=c.toDataURL("image/jpeg",0.9).split(",")[1], bin=atob(b64), jpg=new Uint8Array(bin.length);
+    for(let k=0;k<bin.length;k++) jpg[k]=bin.charCodeAt(k);
+    const P=3+i*3, I=P+1, C=P+2, cs="q 792 0 0 612 0 0 cm /Im0 Do Q";
+    obj(P,()=>push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 792 612] /Resources << /XObject << /Im0 ${I} 0 R >> >> /Contents ${C} 0 R >>`));
+    obj(I,()=>{ push(`<< /Type /XObject /Subtype /Image /Width ${PW} /Height ${PH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`); push(jpg); push("\nendstream"); });
+    obj(C,()=>push(`<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`));
+  });
+  const total=3+n*3, xref=len;
+  push(`xref\n0 ${total}\n0000000000 65535 f \n`+off.slice(1).map(o=>String(o).padStart(10,"0")+" 00000 n \n").join(""));
+  push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts,{type:"application/pdf"});
+}
+async function deliverPDF(blob){
+  const name=(S.project.name||"av-design").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-")+".pdf";
+  const file=new File([blob],name,{type:"application/pdf"});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file],title:name}); return true; }
+    catch(e){ if(e.name==="AbortError") return true; if(e.name==="NotAllowedError") return file; }
+  }
+  dl(blob,name); return true;
+}
+async function savePDF(btn){
+  const label=btn?btn.textContent:"";
+  if(btn){ btn.disabled=true; btn.textContent="Building PDF…"; }
+  try{
+    const r=await deliverPDF(await buildPDFBlob());
+    if(r instanceof File && btn){ // share needs a fresh tap after the async build
+      btn.disabled=false; btn.textContent="PDF ready — tap to share";
+      btn.onclick=async()=>{ try{ await navigator.share({files:[r],title:r.name}); }catch(e){} btn.textContent=label; btn.onclick=()=>savePDF(btn); };
+      return;
+    }
+  }catch(e){ console.error(e); alert("Couldn't build the PDF: "+e.message); }
+  if(btn){ btn.disabled=false; btn.textContent=label; }
+}
 function importJSON(e){ const f=e.target.files[0]; if(!f) return; f.text().then(t=>{ try{ S=Object.assign(blank(),JSON.parse(t)); save(); step=0; render(); }catch(err){ document.getElementById("view").insertAdjacentHTML("afterbegin",'<div class="note warn">Could not read that file.</div>'); } }); }
 function resetAll(){ if(confirm("Start a new design? Unsaved work will be cleared (export first if you want it).")){ S=blank(); save(); step=0; render(); } }
 render();
