@@ -546,7 +546,7 @@ const AMPW = {
   "AMP-X300":300,"AMP-X500":500,"AMP-X75":75,"MPA 601":60,"AMP-X1000":1000,"Tesira AMP-450BP":120,"XPA 2001-70V":200,"NetPA U 1002":200,"NetPA U 1004":400,"Quattrocanali 4804 DSP+D":4800
 };
 // AEC channel capacity by DSP model ("sw" = software AEC that scales with the platform/licensing)
-// Team favorites: preferred whenever they fit the design without being oversized
+// Team favorites: tie-breaker only — used when they are as well-sized as any alternative for this room, never over a better fit
 const FAV = new Set(["CP4N","CEN-SWPOE-10","AMP-X75","TS-880-B","HD-DA2-4KZ-E","MPC4-102-B","CEN-SWPOE-ULTRA-12","SAROS IC4P-W","TSW-880-B","HD-MD4X1-4KZ-E","MPC4-302-B",
   "HD-MD4X2-4KZ-E","RMC4","HD-RXC-4KZ-101","HD-TXC-4KZ-101","CS 26T Plus","DTP HDMI 4K 330 Rx","DTP HDMI 4K 330 Tx","DTP3 CrossPoint 42","IN1604","IPCP Pro 250 xi","MLC Plus 100","MPA 601","TLP Pro 835T"]);
 // Capacity specs used to right-size picks (approximate; confirm on spec sheets)
@@ -1008,8 +1008,8 @@ const SCALE_NAME={s:"small",m:"medium",l:"large"};
 // Order: preferred brand first, then products sized for this room; catalog order otherwise
 function choices(catKey){
   const eco=S.infra.eco||"auto", sc=roomScale(), list=CAT[catKey]||[];
-  const score=p=>(eco!=="auto"&&p[3]!==eco&&p[3]!=="*"?2:0)+(eco!=="auto"&&p[3]==="*"?1:0)+((p[4]||"sml").includes(sc)?0:3)-(FAV.has(p[1])?0.5:0);
-  return list.map((p,i)=>[p,i]).sort((a,b)=>score(a[0])-score(b[0])||a[1]-b[1]).map(x=>x[0]);
+  const score=p=>(eco!=="auto"&&p[3]!==eco&&p[3]!=="*"?2:0)+(eco!=="auto"&&p[3]==="*"?1:0)+((p[4]||"sml").includes(sc)?0:3);
+  return list.map((p,i)=>[p,i]).sort((a,b)=>score(a[0])-score(b[0])||(FAV.has(b[0][1])-FAV.has(a[0][1]))||a[1]-b[1]).map(x=>x[0]);
 }
 // Does a catalog entry have the capacity this design needs? (true = fits, false = too small, null = unknown)
 function fits(it,p){
@@ -1060,7 +1060,7 @@ function pickOf(it){
   if(ok.some(p=>slack(it,p)!=null)){ // capacity is known: smallest unit that does the job, preferred brand first
     const sized=ok.filter(p=>slack(it,p)!=null);
     const fav=p=>FAV.has(p[1])&&!oversized(it,p)?0:1;
-    return sized.slice().sort((a,b)=>ecoPen(a)-ecoPen(b)||fav(a)-fav(b)||slack(it,a)-slack(it,b))[0]; }
+    return sized.slice().sort((a,b)=>ecoPen(a)-ecoPen(b)||slack(it,a)-slack(it,b)||fav(a)-fav(b))[0]; }
   if(ok.length) return ok[0];
   const unk=ch.find(p=>fits(it,p)===null); if(unk) return unk;
   const sized=ch.filter(p=>slack(it,p)!=null); // nothing fits: the biggest available, and the review flags it
