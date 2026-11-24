@@ -601,7 +601,7 @@ function exportCSV(){
   dl(new Blob([lines.join("\n")],{type:"text/csv"}),(S.project.name||"av-design")+"-bom.csv");
 }
 
-let LAST_LAYOUT=null;
+let LAST_LAYOUT=null, LCOLS={cx:[],CWD:[]};
 // ---------- Location-zone layout (inspired by as-built field-device sheets) ----------
 // Columns: 0 source/field-in · 1 at-source Tx/enc · 2 rack-in · 3 rack core blocks · 4 rack-out · 5 at-display Rx/dec · 6 field devices
 function zoneLayout(N,E,o){
@@ -647,10 +647,17 @@ function zoneLayout(N,E,o){
   const yL=stackSide("L",0), yR=stackSide("R",6);
   // rack side columns: align with what they connect to, then de-overlap
   const nb=id=>E.filter(e=>(e.a===id||e.b===id)&&(e.k==="video"||e.k==="audio")).map(e=>e.a===id?e.b:e.a).map(k=>N[k]).filter(n=>n&&n.y!==undefined&&n.zone!=="rack");
-  const settle=ids=>{ ids.forEach(id=>{ const ps=nb(id); N[id].y=ps.length?Math.min(...ps.map(p=>p.y+(p.anchor?0:0))):1e9; });
-    ids.sort((a,b)=>N[a].y-N[b].y); let floor=TOP+28; ids.forEach(id=>{ const n=N[id]; if(n.y===1e9||n.y<floor) n.y=Math.max(floor,n.y===1e9?floor:n.y); floor=n.y+step(n); }); };
-  settle(Z.rack?Z.rack.ids.filter(id=>N[id].col===2):[]);
-  settle(Z.rack?Z.rack.ids.filter(id=>N[id].col===4):[]);
+  // heights where a straight run passes through column c (e.g. table encoder → switch crossing the rack-in column)
+  const through=c=>E.filter(e=>(e.k==="video"||e.k==="audio")&&N[e.a]&&N[e.b]).map(e=>[N[e.a],N[e.b]]).filter(([A,B])=>Math.min(A.col,B.col)<c&&Math.max(A.col,B.col)>c)
+    .map(([A,B])=>{ const o=c<3?(A.col<c?A:B):(A.col>c?A:B); return o.y===undefined?null:[o.y-6,o.y+nh(o)+6]; }).filter(Boolean);
+  const settle=(ids,c)=>{ const bands=through(c);
+    ids.forEach(id=>{ const ps=nb(id); N[id].y=ps.length?Math.min(...ps.map(p=>p.y)):1e9; });
+    ids.sort((a,b)=>N[a].y-N[b].y); let floor=TOP+28;
+    ids.forEach(id=>{ const n=N[id]; n.y=Math.max(floor,n.y===1e9?floor:n.y);
+      for(let moved=true;moved;){ moved=false; for(const [b0,b1] of bands) if(n.y<b1 && n.y+nh(n)>b0){ n.y=b1; moved=true; } }
+      floor=n.y+step(n); }); };
+  settle(Z.rack?Z.rack.ids.filter(id=>N[id].col===2):[],2);
+  settle(Z.rack?Z.rack.ids.filter(id=>N[id].col===4):[],4);
   // core blocks: tall, spanning what they connect to
   const blocks=["core","dspx","proc","net"].filter(k=>N[k]); let floor=TOP+28;
   blocks.forEach(k=>{ const ys=E.filter(e=>(e.a===k||e.b===k)&&e.k!=="net"&&e.k!=="control").map(e=>N[e.a===k?e.b:e.a]).filter(n=>n&&n.y!==undefined&&n.col!==3);
@@ -668,6 +675,7 @@ function zoneLayout(N,E,o){
     const x0=Math.min(...ns.map(n=>n.x))-14, x1=Math.max(...ns.map(n=>n.x+n.w))+14, y0=Math.min(...ns.map(n=>n.y))-30, y1=Math.max(...ns.map(n=>n.y+nh(n)+(n.circles?0:16)))+8;
     const label=q.label;
     return {x:x0,y:y0,w:x1-x0,h:y1-y0,label,rack:q.key==="rack"}; }).filter(Boolean);
+  LCOLS={cx,CWD};
   return {W,H,zones};
 }
 function diagram(){
@@ -812,36 +820,114 @@ function diagram(){
   const LG=[["Video","video"],["Audio","audio"],["Control","control"],["Network","net"],["USB","usb"]];
   LG.forEach(([t,k],i)=>{ const lx=W-20-(LG.length-i)*88, [c,da]=ST[k]; g+=`<line x1="${lx}" y1="16" x2="${lx+22}" y2="16" stroke="${c}" stroke-width="2" ${da?`stroke-dasharray="${da}"`:""}/><text x="${lx+27}" y="20" fill="${D.mute}" font-size="10">${t}</text>`; });
   const tags={}, netTags=!(S.view&&S.view.netLines);
+  // ---- router: unique connection points per box side + lane-allocated vertical legs (lines may cross, never share space)
+  const R=[];
   E.forEach(e=>{
-    delete e._lx; delete e._ly;
-    const A1=N[e.a], B1=N[e.b]; if(!A1||!B1) return;
+    const A=N[e.a], B=N[e.b]; if(!A||!B) return;
     if(netTags && e.k==="net" && e.b==="net"){ (tags[e.a]=tags[e.a]||[]).push((e.l||"LAN")+" → NSW-1"); return; }
-    const [c,da,w]=ST[e.k]; let x1,y1,x2,y2,p;
-    if(A1.col===B1.col && A1.xo===B1.xo){
-      const lo=Math.min(A1.y,B1.y), hi=Math.max(A1.y,B1.y);
-      const blocked=Object.values(N).some(n=>n.col===A1.col && n!==A1 && n!==B1 && n.y>lo && n.y<hi);
-      if(blocked){ // route around boxes stacked in the same column (e.g. switcher → processor past the DSP)
-        const off={video:8,audio:14,control:20,net:26,usb:32}[e.k]||10, left=e.k==="control"||e.k==="net", sx=left?A1.x-off:A1.x+A1.w+off;
-        x1=left?A1.x:A1.x+A1.w; x2=left?B1.x:B1.x+B1.w; y1=A1.y+Math.min(A1.h/2,24); y2=B1.y+Math.min(B1.h/2,24);
-        p=`M${x1} ${y1} H${sx} V${y2} H${x2}`; x1=x2=sx;
-      } else {
-        const dn=A1.y<B1.y; x1=x2=A1.x+A1.w/2+A1.w*(e.k==="video"?-.22:e.k==="audio"?.22:e.k==="net"?-.4:0);
-        y1=dn?A1.y+A1.h:A1.y; y2=dn?B1.y:B1.y+B1.h; p=`M${x1} ${y1} L${x2} ${y2}`;
-      }
-    } else {
-      const fwd=A1.col<B1.col || (A1.col===B1.col && A1.x<B1.x); x1=fwd?A1.x+A1.w:A1.x; x2=fwd?B1.x:B1.x+B1.w;
-      // tall blocks: meet the line at the small device's height so links run straight
-      const tA=A1.h>bh, tB=B1.h>bh;
-      y1=tA&&!tB?clamp(cy(B1),A1.y+12,A1.y+A1.h-12):cy(A1); y2=tB&&!tA?clamp(cy(A1),B1.y+12,B1.y+B1.h-12):cy(B1);
-      if(B1.anchor){ x2=B1.anchor.x; y2=B1.anchor.y; if(tA) y1=clamp(y2,A1.y+12,A1.y+A1.h-12); else if(A1.h===bh) y1=cy(A1); }
-      // right-angle routing; stagger the vertical leg so parallel runs don't stack on top of each other
-      if(Math.abs(y1-y2)<1){ p=`M${x1} ${y1} H${x2}`; }
-      else { const span=x2-x1, lane=((E.indexOf(e)%7)-3)*7, mx=x1+span/2+(Math.abs(span)>60?lane:0), r=Math.min(6,Math.abs(y2-y1)/2,Math.abs(mx-x1),Math.abs(x2-mx)), sx=Math.sign(mx-x1)||1, sy=Math.sign(y2-y1), sx2=Math.sign(x2-mx)||1;
-        p=`M${x1} ${y1} H${mx-sx*r} Q${mx} ${y1} ${mx} ${y1+sy*r} V${y2-sy*r} Q${mx} ${y2} ${mx+sx2*r} ${y2} H${x2}`;
-        e._lx=(x1+mx)/2; e._ly=y1; }
-    }
-    g+=`<path d="${p}" fill="none" stroke="${c}" stroke-width="${w}" ${da?`stroke-dasharray="${da}"`:""} opacity=".9"/>`;
-    if(e.l) g+=`<text x="${e._lx??(x1+x2)/2}" y="${(e._ly??(y1+y2)/2)-4}" text-anchor="middle" fill="${c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(e.l)}</text>`;
+    let mode="h";
+    if(A.col===B.col && A.xo===B.xo){ const lo=Math.min(A.y,B.y), hi=Math.max(A.y,B.y);
+      mode=Object.values(N).some(n=>n.col===A.col && n!==A && n!==B && n.y>lo && n.y<hi)?"br":"v"; }
+    R.push({e,A,B,mode,fwd:A.x<B.x, left:e.k==="control"||e.k==="net"});
+  });
+  // connection points
+  const cpts={}, addPort=(n,side,r,end)=>(cpts[n.id+"|"+side]=cpts[n.id+"|"+side]||[]).push({n,r,end});
+  R.forEach(r=>{ if(r.mode==="h"){ addPort(r.A,r.fwd?"R":"L",r,"a"); if(!r.B.anchor) addPort(r.B,r.fwd?"L":"R",r,"b"); }
+                 else if(r.mode==="br"){ const sd=r.left?"L":"R"; addPort(r.A,sd,r,"a"); addPort(r.B,sd,r,"b"); } });
+  Object.values(cpts).forEach(list=>{
+    const n=list[0].n, tall=n.h>bh+1, other=p=>p.end==="a"?p.r.B:p.r.A, oy=p=>{ const o=other(p); return o.anchor?o.anchor.y:cy(o); };
+    list.sort((p,q)=>oy(p)-oy(q));
+    if(!tall){ list.forEach((p,i)=>p.y=list.length===1?cy(n):n.y+8+(n.h-16)*i/(list.length-1)); }
+    else { let prev=-1e9; list.forEach(p=>{ p.y=Math.max(clamp(oy(p),n.y+10,n.y+n.h-10),prev+9); prev=p.y; });
+           const over=prev-(n.y+n.h-8); if(over>0) list.forEach(p=>p.y-=over); }
+    list.forEach(p=>p.r[p.end==="a"?"y1":"y2"]=p.y);
+  });
+  // a straight run beats a jog: if both ends could meet at one height, use it
+  R.forEach(r=>{ if(r.mode!=="h") return;
+    if(r.B.anchor){ r.y2=r.B.anchor.y; r.x2=r.B.anchor.x; } else r.x2=r.fwd?r.B.x:r.B.x+r.B.w;
+    r.x1=r.fwd?r.A.x+r.A.w:r.A.x; });
+  // vertical legs: allocate lanes inside each gap; each jogged run may turn near its start or near its end
+  const {cx,CWD}=LCOLS, gi0=g=>clamp(g,0,cx.length-2);
+  R.forEach(r=>{ r.legAt="src"; delete r.ty; });
+  const allocate=()=>{ const gaps={};
+    const want=(key,x0,x1,y0,y1,r,f="lx")=>{ (gaps[key]=gaps[key]||{x0,x1,items:[]}).items.push({y0:Math.min(y0,y1),y1:Math.max(y0,y1),r,f}); };
+    R.forEach(r=>{
+      if(r.mode==="h" && r.ty!==undefined && r.A.col!==r.B.col){
+        const g1=gi0(r.fwd?r.A.col:r.A.col-1), g2=gi0(r.fwd?r.B.col-1:r.B.col);
+        want("g"+g1,cx[g1]+CWD[g1],cx[g1+1],r.y1,r.ty,r,"lx"); want("g"+g2,cx[g2]+CWD[g2],cx[g2+1],r.ty,r.y2,r,"lx2");
+      } else if(r.mode==="h" && Math.abs(r.y1-r.y2)>=1){
+        if(r.A.col===r.B.col) want("pair:"+r.A.id+":"+r.B.id,Math.min(r.x1,r.x2),Math.max(r.x1,r.x2),r.y1,r.y2,r);
+        else { const gi=gi0(r.legAt==="src"?(r.fwd?r.A.col:r.A.col-1):(r.fwd?r.B.col-1:r.B.col)); want("g"+gi,cx[gi]+CWD[gi],cx[gi+1],r.y1,r.y2,r); }
+      } else if(r.mode==="br"){ const gi=gi0(r.left?r.A.col-1:r.A.col); want("b"+gi+(r.left?"L":"R"),cx[gi]+CWD[gi],cx[gi+1],r.y1,r.y2,r); }
+      else if(r.mode==="v"){ want("c"+r.A.col+":"+Math.round(r.A.x),r.A.x+14,r.A.x+r.A.w-14,r.A.y,r.B.y,r); }
+    });
+    const laneUp=G=>{ const its=G.items.sort((a,b)=>a.y0-b.y0||(b.y1-b.y0)-(a.y1-a.y0)), end=[];
+      its.forEach(it=>{ let L=end.findIndex(e=>e<it.y0-6); if(L<0){ L=end.length; end.push(0); } end[L]=it.y1; it.L=L; }); return end.length; };
+    const reserve={}; // brackets hug their column; regular legs use what's left of the gap
+    Object.entries(gaps).filter(([k])=>k[0]==="b").forEach(([k,G])=>{ const n=laneUp(G), right=k.endsWith("R"), gk="g"+k.slice(1,-1);
+      G.items.forEach(it=>it.r[it.f]=right?G.x0+5+it.L*5:G.x1-5-it.L*5);
+      (reserve[gk]=reserve[gk]||{L:0,R:0})[right?"L":"R"]=n*5+6; });
+    Object.entries(gaps).filter(([k])=>k[0]!=="b").forEach(([k,G])=>{ const n=laneUp(G), rv=reserve[k]||{L:0,R:0};
+      const x0=G.x0+rv.L, x1=G.x1-rv.R, mid=(x0+x1)/2, sp=Math.min(9,Math.max(3,(x1-x0-8)/Math.max(1,n)));
+      G.items.forEach(it=>it.r[it.f]=mid+(it.L-(n-1)/2)*sp);
+    }); };
+  const segOf=r=>{ const H=(y,a,b)=>({o:"h",k:y,a:Math.min(a,b),b:Math.max(a,b),r}), V=(x,a,b)=>({o:"v",k:x,a:Math.min(a,b),b:Math.max(a,b),r});
+    if(r.mode==="h" && r.ty!==undefined) return [H(r.y1,r.x1,r.lx),V(r.lx,r.y1,r.ty),H(r.ty,r.lx,r.lx2),V(r.lx2,r.ty,r.y2),H(r.y2,r.lx2,r.x2)];
+    if(r.mode==="h") return Math.abs(r.y1-r.y2)<1?[H(r.y1,r.x1,r.x2)]:[H(r.y1,r.x1,r.lx),V(r.lx,r.y1,r.y2),H(r.y2,r.lx,r.x2)];
+    if(r.mode==="br"){ const x1=r.left?r.A.x:r.A.x+r.A.w, x2=r.left?r.B.x:r.B.x+r.B.w; return [H(r.y1,x1,r.lx),V(r.lx,r.y1,r.y2),H(r.y2,r.lx,x2)]; }
+    const dn=r.A.y<r.B.y; return [V(r.lx,dn?r.A.y+r.A.h:r.A.y,dn?r.B.y:r.B.y+r.B.h)]; };
+  const clashes=()=>{ const sg=R.flatMap(segOf), out=new Set(); let n=0;
+    for(let i=0;i<sg.length;i++) for(let j=i+1;j<sg.length;j++){ const p=sg[i],q=sg[j];
+      if(p.r===q.r||p.o!==q.o||Math.abs(p.k-q.k)>1.5||Math.min(p.b,q.b)-Math.max(p.a,q.a)<=3) continue; n++; out.add(p.r); out.add(q.r); }
+    return {n,rs:[...out]}; };
+  allocate();
+  for(let it=0,c=clashes(); it<6 && c.n; it++){
+    let improved=false;
+    for(const r of c.rs){ if(r.mode!=="h"||Math.abs(r.y1-r.y2)<1||r.A.col===r.B.col) continue;
+      r.legAt=r.legAt==="src"?"tgt":"src"; allocate(); const c2=clashes();
+      if(c2.n<c.n){ c=c2; improved=true; break; } r.legAt=r.legAt==="src"?"tgt":"src"; allocate(); }
+    if(!improved) break;
+  }
+  // detour: drop to a clear horizontal track between rows, cross there, rise to the target
+  for(let it=0,c=clashes(); it<10 && c.n; it++){
+    let improved=false;
+    for(const r of c.rs){ if(r.mode!=="h"||r.A.col===r.B.col||Math.abs(r.A.col-r.B.col)<2) continue;
+      const mid=(r.y1+r.y2)/2, cand=[...new Set(Object.values(N).flatMap(n=>[n.y-10,n.y-16,n.y+n.h+24,n.y+n.h+30]))].sort((a,b)=>Math.abs(a-mid)-Math.abs(b-mid)).slice(0,48);
+      for(const ty of cand){ r.ty=ty; allocate(); const c2=clashes(); if(c2.n<c.n){ c=c2; improved=true; break; } }
+      if(improved) break; delete r.ty; allocate(); }
+    if(!improved) break;
+  }
+  // last resort: slide a connection point along a tall block until its run is clear
+  for(let it=0,c=clashes(); it<12 && c.n; it++){
+    let improved=false;
+    for(const r of c.rs){ if(r.mode!=="h") continue;
+      for(const end of ["y2","y1"]){ const n=end==="y1"?r.A:r.B; if(n.h<=bh+1 || n.anchor) continue;
+        const y0=r[end];
+        for(const d of [9,-9,18,-18,27,-27,36,-36]){ const y=y0+d; if(y<n.y+8||y>n.y+n.h-8) continue;
+          r[end]=y; allocate(); const c2=clashes(); if(c2.n<c.n){ c=c2; improved=true; break; } }
+        if(improved) break; r[end]=y0; allocate(); }
+      if(improved) break; }
+    if(!improved) break;
+  }
+  // draw
+  R.forEach(r=>{
+    const e=r.e, [c,da,w]=ST[e.k]; let p, lx, ly;
+    if(r.mode==="h" && r.ty!==undefined){
+      const pts=[[r.x1,r.y1],[r.lx,r.y1],[r.lx,r.ty],[r.lx2,r.ty],[r.lx2,r.y2],[r.x2,r.y2]];
+      p="M"+pts[0].join(" "); for(let i=1;i<pts.length-1;i++){ const [px,py]=pts[i-1],[x,y]=pts[i],[nx,ny]=pts[i+1], k=Math.min(5,Math.hypot(x-px,y-py)/2,Math.hypot(nx-x,ny-y)/2);
+        const ux=Math.sign(x-px),uy=Math.sign(y-py),vx=Math.sign(nx-x),vy=Math.sign(ny-y); p+=` ${ux?"H":"V"}${ux?x-ux*k:y-uy*k} Q${x} ${y} ${x+vx*k} ${y+vy*k}`; }
+      p+=` H${r.x2}`; const a1=Math.abs(r.lx2-r.lx); lx=(r.lx+r.lx2)/2; ly=r.ty;
+    } else if(r.mode==="h"){
+      const {x1,y1,x2,y2}=r;
+      if(Math.abs(y1-y2)<1){ p=`M${x1} ${y1} H${x2}`; lx=(x1+x2)/2; ly=y1; }
+      else { const mx=r.lx, k=Math.min(5,Math.abs(y2-y1)/2,Math.abs(mx-x1),Math.abs(x2-mx)), s1=Math.sign(mx-x1)||1, sy=Math.sign(y2-y1), s2=Math.sign(x2-mx)||1;
+        p=`M${x1} ${y1} H${mx-s1*k} Q${mx} ${y1} ${mx} ${y1+sy*k} V${y2-sy*k} Q${mx} ${y2} ${mx+s2*k} ${y2} H${x2}`;
+        const a1=Math.abs(mx-x1), a2=Math.abs(x2-mx); if(a1>=a2){ lx=(x1+mx)/2; ly=y1; } else { lx=(mx+x2)/2; ly=y2; } }
+    } else if(r.mode==="br"){ const sd=r.left, x1=sd?r.A.x:r.A.x+r.A.w, x2=sd?r.B.x:r.B.x+r.B.w;
+      p=`M${x1} ${r.y1} H${r.lx} V${r.y2} H${x2}`; lx=r.lx; ly=(r.y1+r.y2)/2;
+    } else { const dn=r.A.y<r.B.y, y1=dn?r.A.y+r.A.h:r.A.y, y2=dn?r.B.y:r.B.y+r.B.h; p=`M${r.lx} ${y1} V${y2}`; lx=r.lx; ly=(y1+y2)/2; }
+    g+=`<path d="${p}" data-e="${e.a}>${e.b}:${r.mode}" fill="none" stroke="${c}" stroke-width="${w}" ${da?`stroke-dasharray="${da}"`:""} opacity=".9"/>`;
+    if(e.l) g+=`<text x="${lx}" y="${ly-4}" text-anchor="middle" fill="${c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(e.l)}</text>`;
   });
   Object.values(N).forEach(n=>{
     if(n.kind!=="spk"){ g+=box(n.x,n.y,n.w,n.h,n.title,n.sub,n.kind==="core"||n.col===2?D.accbg:D.panel,KS[n.kind]||D.line,n.col===2); return; }
