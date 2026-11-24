@@ -301,7 +301,8 @@ Displays(){
   const list = S.displays.map((d,i)=>`<div class="item"><button class="sm x" onclick="del('displays',${i})">✕</button>
    <div class="grid">${field("Name","displays."+i+".name",d.name)}${sel("Type","displays."+i+".type",DISPLAY_TYPES,d.type)}
    ${field("Size (in)","displays."+i+".size",d.size,"number")}${sel("Resolution","displays."+i+".res",["1080p","4K","Native LED","Other"],d.res)}
-   ${field("Location","displays."+i+".loc",d.loc)}${field("Cable distance from rack (ft)","displays."+i+".dist",d.dist,"number")}</div></div>`).join("");
+   ${field("Location","displays."+i+".loc",d.loc)}${field("Cable distance from rack (ft)","displays."+i+".dist",d.dist,"number",'data-rc="1"')}
+   ${sel("Transport","displays."+i+".tx",TX_OPTS,d.tx||"Auto",true)}</div>${txNote(dispT(d),d.tx,d.dist)}</div>`).join("");
   const rec = sizeHint();
   return `<h2>How many displays are we trying to get to?</h2><p class="q">Add every screen in the design — main displays, confidence monitors, signage, overflow.</p>
   ${list || '<div class="empty">No displays yet — add the first screen this system needs to reach.</div>'}
@@ -311,7 +312,7 @@ Displays(){
 Sources(){
   const list = S.sources.map((s,i)=>`<div class="item"><button class="sm x" onclick="del('sources',${i})">✕</button>
    <div class="grid">${field("Name","sources."+i+".name",s.name)}${sel("Type","sources."+i+".type",SOURCE_TYPES,s.type)}
-   ${sel("Location","sources."+i+".loc",LOCS,s.loc,true)}${s.loc!=="Equipment rack"?field("Cable distance to rack (ft)","sources."+i+".dist",s.dist,"number",'data-rc="1"'):""}
+   ${sel("Location","sources."+i+".loc",LOCS,s.loc,true)}${s.loc!=="Equipment rack"?field("Cable distance to rack (ft)","sources."+i+".dist",s.dist,"number",'data-rc="1"')+sel("Transport","sources."+i+".tx",TX_OPTS,s.tx||"Auto",true):""}
    ${chk("Carries audio","sources."+i+".audio",s.audio)}</div></div>`).join("");
   return `<h2>What are we trying to get to them?</h2><p class="q">List every source that needs to be seen — and where it plugs in.</p>
   ${list || '<div class="empty">No sources yet — tap a common one below to start.</div>'}
@@ -429,13 +430,23 @@ function recommendCore(){
   return {name,why};
 }
 function nextSize(n){ return [2,4,6,8,10,12,16,24,32].find(x=>x>=n)||n; }
+const TX_OPTS=["Auto","HDMI","HDBaseT"];
+// Effective transport for a display run: an explicit pick wins, otherwise distance decides
+function dispT(d){ return d.tx==="HDMI"||d.tx==="HDBaseT" ? d.tx : transport(d.dist); }
+function txNote(eff,pick,dist){ const auto=!pick||pick==="Auto";
+  const t=auto?(eff==="?"?"Auto: enter a distance, or pick HDMI / HDBaseT.":`Auto → <b>${eff}</b> from the ${dist} ft run.`):`Set to <b>${pick}</b>.`;
+  return `<div class="q" style="font-size:.78rem;margin:.35rem 0 0">${t}</div>`; }
 function transport(dist){ dist=+dist||0; if(!dist) return "?"; if(dist<=25) return "HDMI"; if(dist<=330) return "HDBaseT"; return "Fiber / AVoIP"; }
 
 function checks(){
   const n=[];
   if(!S.displays.length) n.push("No displays defined.");
   if(!S.sources.length) n.push("No sources defined.");
-  S.displays.forEach(d=>{ if(!routed().some(r=>r[1]===d.id)) n.push(`${esc(d.name)} has no sources routed to it.`); if(!d.dist) n.push(`${esc(d.name)}: cable distance unknown — needed to pick HDMI vs HDBaseT vs fiber.`); });
+  S.displays.forEach(d=>{ if(!routed().some(r=>r[1]===d.id)) n.push(`${esc(d.name)} has no sources routed to it.`); if(!d.dist && (!d.tx||d.tx==="Auto")) n.push(`${esc(d.name)}: cable distance unknown — enter it or set Transport to HDMI / HDBaseT.`);
+    if(d.tx==="HDMI" && +d.dist>25) n.push(`${esc(d.name)}: HDMI set on a ${d.dist} ft run — passive HDMI is unreliable past ~25 ft; use HDBaseT or an active cable.`);
+    if(d.tx==="HDBaseT" && +d.dist>330) n.push(`${esc(d.name)}: HDBaseT set on a ${d.dist} ft run — HDBaseT is rated to 330 ft (100 m); use fiber or AV over IP.`); });
+  S.sources.forEach(x=>{ if(x.tx==="HDMI" && +x.dist>25) n.push(`${esc(x.name)}: HDMI set on a ${x.dist} ft run — use HDBaseT or an active cable.`);
+    if(x.tx==="HDBaseT" && +x.dist>330) n.push(`${esc(x.name)}: HDBaseT set on a ${x.dist} ft run — exceeds 330 ft.`); });
   S.sources.forEach(s=>{ if(!routed().some(r=>r[0]===s.id)) n.push(`${esc(s.name)} isn't routed anywhere.`); });
   if(S.conf.farEnd && !S.cameras.length) n.push("Room joins video calls but no cameras are listed.");
   if(S.conf.farEnd && !S.audio.mics.length && !hasBar()) n.push("Room joins video calls but no microphones are listed.");
@@ -536,12 +547,13 @@ function items(){
 // Does a source need an HDBaseT Tx/Rx pair back to the rack? Distance wins; otherwise compare locations.
 function srcNeedsExt(s){
   if(s.loc==="Equipment rack") return false;
+  if(s.tx==="HDBaseT") return true; if(s.tx==="HDMI") return false;
   if(+s.dist>0) return +s.dist>25;
   const r=S.infra.rackLoc, near={"Lectern":["Lectern"],"Credenza":["Table","Credenza"],"Behind display":["Table","Credenza","Wall plate"],"Floor rack in room":["Credenza"],"Wall rack":["Credenza"]};
   return !(near[r]||[]).includes(s.loc);
 }
 function hdbtPlan(core,L){
-  const long=S.displays.filter(d=>transport(d.dist)==="HDBaseT");
+  const long=S.displays.filter(d=>dispT(d)==="HDBaseT");
   const coreIt=L.find(i=>i.key==="core"), coreModel=coreIt?pickOf(coreIt)[1]:"";
   const swTx=!!coreIt && S.picks.core!==CUSTOM && HDBT_OUT.has(coreModel);
   const dmap={"Flat panel":"panel","Confidence monitor":"panel","Projector + screen":"projector","LED video wall":"led","Interactive display":"interactive"};
@@ -732,15 +744,15 @@ function diagram(){
     const id=node("d"+j,4,rowY(j),d.name+(d.size?` · ${d.size}"`:""),m||d.type,"dsp");
     const r=routed().some(x=>x[1]===d.id); let first=id;
     if(avoip && r){ first=node("dec"+j,3,rowY(j),"Decoder",model("dec"),"ep"); edge(first,id,"video","HDMI"); }
-    else if(!avoip && transport(d.dist)==="HDBaseT"){
+    else if(!avoip && dispT(d)==="HDBaseT"){
       const p=HB.per.find(q=>q.d===d)||{tx:false,rx:false};
       if(p.rx){ first=node("rx"+j,3,rowY(j),"HDBaseT Rx",model("hdrx"),"ep",0,125,118); edge(first,id,"video","HDMI"); }
       if(p.tx){ const tx=node("htx"+j,3,rowY(j),"HDBaseT Tx",model("hdtx"),"ep",0,125,-62); edge(tx,first,"video","HDBaseT"); first=tx; }
       else if(!p.rx) first={hdbtIn:id};
     }
     if(first && first.hdbtIn){ if(coreId && r) edge(coreId,first.hdbtIn,"video","HDBaseT"); }
-    else if(coreId && r) edge(coreId,first,"video",avoip?"1 GbE":transport(d.dist)!=="HDBaseT"?"HDMI":N["htx"+j]?"HDMI":"HDBaseT");
-    else if(direct) routed().filter(x=>x[1]===d.id).forEach(x=>edge(srcEnd[x[0]],first.hdbtIn||first,"video",N["htx"+j]?"HDMI":transport(d.dist)));
+    else if(coreId && r) edge(coreId,first,"video",avoip?"1 GbE":dispT(d)!=="HDBaseT"?"HDMI":N["htx"+j]?"HDMI":"HDBaseT");
+    else if(direct) routed().filter(x=>x[1]===d.id).forEach(x=>edge(srcEnd[x[0]],first.hdbtIn||first,"video",N["htx"+j]?"HDMI":dispT(d)==="?"?"HDMI":dispT(d)));
   });
   y=Math.max(rowY(rows-1)+bh, coreId?N[coreId].y+N[coreId].h:0)+70;
 
