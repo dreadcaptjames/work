@@ -574,8 +574,8 @@ function diagram(){
   const D=T(), IT=items(), has=k=>IT.find(i=>i.key===k);
   const model=k=>{ const i=has(k); if(!i) return ""; const p=pickOf(i); return p?p[0]+" "+p[1]:""; };
   const core=recommendCore().name, avoip=core.startsWith("AV over IP"), direct=core.startsWith("Direct");
-  const bw=200, bh=42, gap=58, N={}, E=[], secs=[];
-  const node=(id,col,y,title,sub,kind)=>{ N[id]={id,col,y,title,sub,kind}; return id; };
+  const bw=200, bh=42, gap=58, CW=290, N={}, E=[], secs=[];
+  const node=(id,col,y,title,sub,kind,h)=>{ N[id]={id,col,y,title,sub,kind,w:col===2?CW:bw,h:h||bh}; return id; };
   const edge=(a,b,k,l)=>{ if(a&&b) E.push({a,b,k,l}); };
   const smap={"Room PC":"pc","Media player":"player","Digital signage player":"player","Cable / IPTV":"iptv","Document camera":"doccam","Wireless presentation":"wireless"};
   const dmap={"Flat panel":"panel","Confidence monitor":"panel","Projector + screen":"projector","LED video wall":"led","Interactive display":"interactive"};
@@ -588,7 +588,7 @@ function diagram(){
   if(!direct){
     const ck=avoip?"netsw":"core";
     const title=avoip?"AV network switch":core.startsWith("Matrix")?"Matrix switcher":"Presentation switcher";
-    coreId=node("core",2,(rowY(0)+rowY(rows-1))/2,title,model(ck)||core,"core");
+    coreId=node("core",2,rowY(0),title,model(ck)||core,"core",Math.max(rowY(rows-1)+bh-rowY(0),bh*2.4));
   }
   const srcEnd={};
   S.sources.forEach((s,i)=>{
@@ -610,14 +610,19 @@ function diagram(){
     if(coreId && r) edge(coreId,first,"video",avoip?"1 GbE":transport(d.dist)==="HDBaseT"?"HDBaseT":"HDMI");
     else if(direct) routed().filter(x=>x[1]===d.id).forEach(x=>edge(srcEnd[x[0]],first,"video",transport(d.dist)));
   });
-  y=rowY(rows-1)+bh+70;
+  y=Math.max(rowY(rows-1)+bh, coreId?N[coreId].y+N[coreId].h:0)+70;
 
   // generic banded section: cols = array of 5 arrays of {id,title,sub,kind}
   const band=(label,cols)=>{
-    const n=Math.max(...cols.map(c=>c.length)); if(!n) return false;
+    if(!Math.max(...cols.map(c=>c.length))) return false;
+    const n=Math.max(...cols.map(c=>c.length), cols[2].length*2); // center blocks get at least two rows of height each
     secs.push([label,y-22]);
-    cols.forEach((c,ci)=>c.forEach((o,k)=>node(o.id,ci,y+((n-c.length)/2+k)*gap,o.title,o.sub,o.kind)));
-    y+= (n-1)*gap+bh+70; return true;
+    const span=(n-1)*gap+bh, cg=16;
+    cols.forEach((c,ci)=>c.forEach((o,k)=>{
+      if(ci===2){ const h=(span-(c.length-1)*cg)/c.length; node(o.id,2,y+k*(h+cg),o.title,o.sub,o.kind,h); }
+      else node(o.id,ci,y+((n-c.length)/2+k)*gap,o.title,o.sub,o.kind);
+    }));
+    y+= span+70; return true;
   };
 
   // ---- AUDIO & CONFERENCING ----
@@ -683,8 +688,9 @@ function diagram(){
   if(swNode && ports) swNode.sub=`${ports} ports${poe?` (${poe} PoE)`:""} · `+swNode.sub.replace(/^same switch: /,"");
 
   // ---- layout + draw ----
-  const H=y-30, W=Math.max(1120, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
-  Object.values(N).forEach(n=>n.x=colX(n.col));
+  const H=y-30, W=Math.max(1360, Math.ceil(H*1.6)), colX=c=>20+c*((W-40-bw)/4);
+  Object.values(N).forEach(n=>n.x=colX(n.col)+(bw-n.w)/2);
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), cy=n=>n.y+n.h/2;
   const ST={video:[D.acc,"",1.8],audio:[D.ok,"",1.8],control:[D.mute,"5 4",1.4],net:[D.acc2,"2 4",1.4],usb:[D.text,"7 3",1.2]};
   const KS={src:D.line,dsp:D.line,ep:D.acc,core:D.acc,aud:D.ok,conf:D.acc2,ctl:D.mute,net:D.acc2};
   let g=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:760px;font-family:system-ui,sans-serif;font-size:12px"><rect width="${W}" height="${H}" fill="${D.field}"/>`;
@@ -701,31 +707,35 @@ function diagram(){
       const lo=Math.min(A1.y,B1.y), hi=Math.max(A1.y,B1.y);
       const blocked=Object.values(N).some(n=>n.col===A1.col && n!==A1 && n!==B1 && n.y>lo && n.y<hi);
       if(blocked){ // route around boxes stacked in the same column (e.g. switcher → processor past the DSP)
-        const off={video:6,audio:11,control:16,net:21,usb:26}[e.k]||8, left=e.k==="control"||e.k==="net", sx=left?A1.x-off:A1.x+bw+off;
-        x1=left?A1.x:A1.x+bw; x2=left?B1.x:B1.x+bw; y1=A1.y+bh/2; y2=B1.y+bh/2;
+        const off={video:8,audio:14,control:20,net:26,usb:32}[e.k]||10, left=e.k==="control"||e.k==="net", sx=left?A1.x-off:A1.x+A1.w+off;
+        x1=left?A1.x:A1.x+A1.w; x2=left?B1.x:B1.x+B1.w; y1=A1.y+Math.min(A1.h/2,24); y2=B1.y+Math.min(B1.h/2,24);
         p=`M${x1} ${y1} H${sx} V${y2} H${x2}`; x1=x2=sx;
       } else {
-        const dn=A1.y<B1.y; x1=x2=A1.x+bw/2+(e.k==="video"?-30:e.k==="audio"?30:e.k==="net"?-60:0);
-        y1=dn?A1.y+bh:A1.y; y2=dn?B1.y:B1.y+bh; p=`M${x1} ${y1} L${x2} ${y2}`;
+        const dn=A1.y<B1.y; x1=x2=A1.x+A1.w/2+(e.k==="video"?-40:e.k==="audio"?40:e.k==="net"?-80:0);
+        y1=dn?A1.y+A1.h:A1.y; y2=dn?B1.y:B1.y+B1.h; p=`M${x1} ${y1} L${x2} ${y2}`;
       }
     } else {
-      const fwd=A1.col<B1.col; x1=fwd?A1.x+bw:A1.x; x2=fwd?B1.x:B1.x+bw; y1=A1.y+bh/2; y2=B1.y+bh/2;
+      const fwd=A1.col<B1.col; x1=fwd?A1.x+A1.w:A1.x; x2=fwd?B1.x:B1.x+B1.w;
+      // tall blocks: meet the line at the small device's height so links run straight
+      const tA=A1.h>bh, tB=B1.h>bh;
+      y1=tA&&!tB?clamp(cy(B1),A1.y+12,A1.y+A1.h-12):cy(A1); y2=tB&&!tA?clamp(cy(A1),B1.y+12,B1.y+B1.h-12):cy(B1);
       const mx=(x1+x2)/2; p=`M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
     }
     g+=`<path d="${p}" fill="none" stroke="${c}" stroke-width="${w}" ${da?`stroke-dasharray="${da}"`:""} opacity=".9"/>`;
     if(e.l) g+=`<text x="${(x1+x2)/2}" y="${(y1+y2)/2-4}" text-anchor="middle" fill="${c}" font-size="9.5" paint-order="stroke" stroke="${D.field}" stroke-width="3">${esc(e.l)}</text>`;
   });
-  Object.values(N).forEach(n=>g+=box(n.x,n.y,bw,bh,n.title,n.sub,n.kind==="core"?D.accbg:D.panel,KS[n.kind]||D.line,n.kind==="core"));
-  Object.entries(tags).forEach(([id,ts])=>{ const n=N[id]; const t=[...new Set(ts)].join(", "), tw=Math.min(bw-8,t.length*5.4+12);
-    g+=`<rect x="${n.x+bw-tw}" y="${n.y+bh+2}" width="${tw}" height="13" rx="6.5" fill="${D.field}" stroke="${D.acc2}" stroke-width="1"/><text x="${n.x+bw-tw/2}" y="${n.y+bh+11.5}" text-anchor="middle" fill="${D.acc2}" font-size="9">${esc(t)}</text>`; });
+  Object.values(N).forEach(n=>g+=box(n.x,n.y,n.w,n.h,n.title,n.sub,n.kind==="core"||n.col===2?D.accbg:D.panel,KS[n.kind]||D.line,n.col===2));
+  Object.entries(tags).forEach(([id,ts])=>{ const n=N[id]; const t=[...new Set(ts)].join(", "), tw=Math.min(n.w-8,t.length*5.4+12);
+    g+=`<rect x="${n.x+n.w-tw}" y="${n.y+n.h+2}" width="${tw}" height="13" rx="6.5" fill="${D.field}" stroke="${D.acc2}" stroke-width="1"/><text x="${n.x+n.w-tw/2}" y="${n.y+n.h+11.5}" text-anchor="middle" fill="${D.acc2}" font-size="9">${esc(t)}</text>`; });
   LAST_LAYOUT={N,E,W,H,secs,bw,bh};
   return g+"</svg>";
 }
 function box(x,y,w,h,t,sub,fill,stroke,bold){
   const D=T(), cut=(s,n)=>{s=String(s||"");return s.length>n?s.slice(0,n-1)+"…":s};
+  const tc=Math.floor(w/7.2), sc=Math.floor(w/6);
   return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="${bold?2:1.2}"/>
-  <text x="${x+10}" y="${y+(sub?17:h/2+4)}" fill="${D.text}" font-weight="600">${esc(cut(t,28))}</text>
-  ${sub?`<text x="${x+10}" y="${y+33}" fill="${D.mute}" font-size="10.5">${esc(cut(sub,33))}</text>`:""}`;
+  <text x="${x+10}" y="${y+(sub||h>50?17:h/2+4)}" fill="${D.text}" font-weight="600" ${bold?'font-size="13.5"':""}>${esc(cut(t,tc))}</text>
+  ${sub?`<text x="${x+10}" y="${y+34}" fill="${D.mute}" font-size="10.5">${esc(cut(sub,sc))}</text>`:""}`;
 }
 
 // ---------- Render / IO ----------
@@ -783,7 +793,7 @@ function exportDrawio(){
     vid[nd.id]="n_"+nd.id;
     const val=`<b>${x(nd.title)}</b>`+(nd.sub?`<br><font style="font-size:10px" color="#5b6875">${x(nd.sub)}</font>`:"");
     const st=`rounded=1;arcSize=12;whiteSpace=wrap;html=1;align=left;spacingLeft=8;fontSize=12;fillColor=${nd.kind==="core"?"#e8f2ff":"#ffffff"};strokeColor=${KS[nd.kind]||"#5b6875"};strokeWidth=${nd.kind==="core"?2:1.2};fontColor=#111820;`;
-    cells.push(`<mxCell id="${vid[nd.id]}" value="${x(val)}" style="${st}" vertex="1" parent="1"><mxGeometry x="${Math.round(nd.x)}" y="${Math.round(nd.y)}" width="${L.bw}" height="${L.bh}" as="geometry"/></mxCell>`);
+    cells.push(`<mxCell id="${vid[nd.id]}" value="${x(val)}" style="${st}" vertex="1" parent="1"><mxGeometry x="${Math.round(nd.x)}" y="${Math.round(nd.y)}" width="${Math.round(nd.w)}" height="${Math.round(nd.h)}" as="geometry"/></mxCell>`);
   });
   // connections, attached to devices so they follow when moved
   L.E.forEach(e=>{
