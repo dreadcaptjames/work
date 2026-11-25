@@ -146,10 +146,10 @@ body{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left)
 </div>
 <script>
 try{
-  const s=JSON.parse(localStorage.getItem("avsketch"));
+  const s=JSON.parse(localStorage.getItem("avsketch"))||JSON.parse(localStorage.getItem("avsketch-last"));
   if(s && (s.displays?.length || s.sources?.length || s.project?.name)){
     const r=document.getElementById("resume");
-    r.innerHTML=`Pick up where you left off: <a href="app.html">${(s.project.name||"Untitled design").replace(/[<>&]/g,"")}</a> · ${s.displays.length} displays, ${s.sources.length} sources`;
+    r.innerHTML=`Pick up where you left off: <a href="app.html?resume=1">${(s.project.name||"Untitled design").replace(/[<>&]/g,"")}</a> · ${s.displays.length} displays, ${s.sources.length} sources`;
     r.hidden=false;
   }
 }catch(e){}

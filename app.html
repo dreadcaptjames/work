@@ -143,6 +143,7 @@ main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
   .bom .nt:empty{display:none}
 }
 @media print{.navbar,.stepper{display:none!important}header{position:static}}
+.resumebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.resumebar[hidden]{display:none}.resumebar span{flex:1;min-width:180px}
 </style>
 <script src="themes.js"></script>
 </head>
@@ -159,6 +160,7 @@ main{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
   </div>
 </header>
 <main>
+  <div id="resumebar" class="resumebar noprint" hidden></div>
   <div class="stepper"><div class="meta" id="meta"></div><div class="bar"><i id="barfill"></i></div><div class="steps" id="steps"></div></div>
   <div id="view"></div>
 </main>
@@ -627,7 +629,16 @@ function migrate(o){
   }
   return o;
 }
-let S = migrate(load() || blank());
+// Every visit starts a new design; the last one is kept so the user can opt to resume it
+const hasContent=o=>!!(o&&((o.displays||[]).length||(o.sources||[]).length||(o.project&&o.project.name)));
+(function(){ const cur=load(); if(hasContent(cur)) try{ localStorage.setItem("avsketch-last",JSON.stringify(cur)); }catch(e){} })();
+function loadLast(){ try{ return JSON.parse(localStorage.getItem("avsketch-last")); }catch(e){ return null; } }
+const WANT_RESUME=typeof location!=="undefined"&&/[?&]resume=1/.test(location.search);
+let S = migrate((WANT_RESUME&&loadLast())||blank());
+function resumeLast(){ const o=loadLast(); if(!o) return; S=migrate(o); save(); document.getElementById("resumebar").hidden=true; history.replaceState(null,"","app.html"); go(0); }
+function showResumeBar(){ const o=loadLast(), el=document.getElementById("resumebar"); if(!el||WANT_RESUME||!hasContent(o)) return;
+  el.innerHTML=`<span>Pick up where you left off: <b>${esc(o.project.name||"Untitled design")}</b> · ${o.displays.length} displays, ${o.sources.length} sources</span><button class="pri" onclick="resumeLast()">Resume</button><button class="sm x" onclick="this.parentNode.hidden=true" aria-label="Dismiss">✕</button>`;
+  el.hidden=false; }
 let step = 0;
 window.onThemeChange = () => { if(document.getElementById("view")) render(); };
 
@@ -1747,7 +1758,7 @@ async function savePDF(btn,kind="pdf"){
 }
 function importJSON(e){ const f=e.target.files[0]; if(!f) return; f.text().then(t=>{ try{ S=migrate(JSON.parse(t)); save(); step=0; render(); }catch(err){ document.getElementById("view").insertAdjacentHTML("afterbegin",'<div class="note warn">Could not read that file.</div>'); } }); }
 function resetAll(){ if(confirm("Start a new design? Unsaved work will be cleared (export first if you want it).")){ S=blank(); save(); step=0; render(); } }
-render();
+render(); showResumeBar();
 </script>
 </body>
 </html>
